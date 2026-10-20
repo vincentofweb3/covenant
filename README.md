@@ -60,6 +60,7 @@ probe/                         20 tests. Behavioural probes that reject invented
 
 scripts/preflight.py           architectural invariants + secret scan. Runs in CI.
 scripts/covctl.py              covenant compiler and policy linter.
+                               Also published standalone: github.com/vincentofweb3/covctl
 
 docs/ARCHITECTURE.md           durable state, state machines, trust boundaries
 docs/CONSENSUS.md              the leader/validator protocol, precisely

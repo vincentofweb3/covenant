@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -393,9 +394,14 @@ def cmd_check_excerpt(args: argparse.Namespace) -> int:
 
 def cmd_selftest(args: argparse.Namespace) -> int:
     """Check the compiler's digest against the real contract, if reachable."""
-    contract = Path(__file__).resolve().parents[1] / "contracts" / "covenant_guard.py"
+    here = Path(__file__).resolve()
+    contract = Path(os.environ.get("COVENANT_GUARD") or (here.parent / "contracts" / "covenant_guard.py"))
+    if not contract.exists() and "COVENANT_GUARD" not in os.environ:
+        sibling = here.parent.parent / "contracts" / "covenant_guard.py"
+        if sibling.exists():
+            contract = sibling
     if not contract.exists():
-        print("SKIP: contracts/covenant_guard.py not found")
+        print("SKIP: covenant_guard.py not found (set COVENANT_GUARD=/path/to/covenant_guard.py)")
         return 0
 
     # The contract needs the GenVM SDK to import, which defeats the point of a

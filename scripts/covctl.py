@@ -41,6 +41,7 @@ from pathlib import Path
 # Must match contracts/covenant_guard.py. Kept here as literals rather than
 # imported: importing the contract would require the GenVM SDK, and this tool
 # exists to run before anything is installed.
+__version__ = "0.1.0"
 HASH_VERSION = "covenant-sha256-v1"
 MAX_COVENANT_LEN = 8000
 MAX_EXCERPT_LEN = 320
@@ -433,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="covctl",
         description="Compile and lint a CovenantGuard covenant.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_lint = sub.add_parser("lint", help="report problems that would degrade or defeat rulings")

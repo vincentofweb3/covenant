@@ -1,0 +1,17 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/direct"]
+# A bare `pytest` must never try to spin up the simulator: the integration suite
+# is slower and exercises a different trust boundary. CI runs it explicitly.
+addopts = "-q"
+markers = [
+  "integration: cross-contract lifecycle and consensus, driven on the in-process glsim network",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E501 is excluded because the contract files use tabs and several lines are
+# long docstrings; the linter that matters for those is genvm-lint.
+ignore = ["E501"]

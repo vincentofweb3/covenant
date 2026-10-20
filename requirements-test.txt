@@ -1,0 +1,14 @@
+# Direct-mode and contract-validation toolchain.
+#
+# Pinned to what is installed and verified locally (2026-10-15):
+#   genlayer-test  0.29.2
+#   genlayer-py    0.16.3
+#   genvm-linter   0.11.0
+#
+# The GenVM *bundle* is pinned separately, in tests/direct/conftest.py, and is a
+# different axis from the Python package. Both are required: see
+# state/MEMORY.md §11 for why letting either float silently breaks the suite.
+pytest==7.4.4
+genvm-linter==0.11.0
+genlayer-test==0.29.2
+genlayer-py==0.16.3

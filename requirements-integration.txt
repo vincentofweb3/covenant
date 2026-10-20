@@ -1,0 +1,9 @@
+# Extra dependencies for the glsim-backed cross-contract suite.
+#
+# These are glsim's own runtime needs (an ASGI test client and RLP calldata
+# encoding), not test-only additions. The contract toolchain is pinned by
+# requirements-test.txt.
+-r requirements-test.txt
+fastapi>=0.115
+httpx>=0.27
+rlp>=0.6

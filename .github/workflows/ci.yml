@@ -1,0 +1,71 @@
+name: covenant-ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  direct:
+    name: preflight + lint + direct tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight invariants and secret scan
+        # Deliberably first and dependency-free: it must catch a broken runtime
+        # pin before anything is installed.
+        run: python3 scripts/preflight.py
+
+      - name: Install toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install --retries 5 --timeout 60 -r requirements-test.txt
+
+      - name: Python compilation
+        run: python -m compileall -q contracts scripts tests
+
+      - name: genvm-lint
+        # GENVM_VERSION is mandatory. Without it genvm-lint resolves the newest
+        # cached GenVM bundle, which on a fresh runner is the newer generation
+        # and does not ship this contract's runner -- the check fails with
+        # "runners/py-genlayer/... not found". state/MEMORY.md §11.
+        env:
+          GENVM_VERSION: v0.3.0-rc7
+        run: |
+          genvm-lint lint contracts/covenant_guard.py
+          genvm-lint lint contracts/treasury_vault.py
+          genvm-lint check contracts/covenant_guard.py
+          genvm-lint check contracts/treasury_vault.py
+
+      - name: covctl self-test
+        run: python3 scripts/covctl.py selftest
+
+      - name: Direct-mode tests
+        run: python3 -m pytest tests/direct -q
+
+  integration:
+    name: glsim lifecycle and consensus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight invariants and secret scan
+        run: python3 scripts/preflight.py
+
+      - name: Install toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install --retries 5 --timeout 60 -r requirements-integration.txt
+
+      - name: Python compilation
+        run: python -m compileall -q contracts scripts tests
+
+      - name: Cross-contract and consensus tests
+        # In-process simulator. No network, no keys, no secrets.
+        run: python3 -m pytest tests/integration -q

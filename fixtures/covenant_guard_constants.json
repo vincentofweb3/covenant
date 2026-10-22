@@ -1,0 +1,162 @@
+{
+  "constants": {
+    "CONTROL_MARKERS": [
+      "ignore previous instructions",
+      "ignore all previous",
+      "disregard the covenant",
+      "reveal your system prompt",
+      "you are now",
+      "developer message",
+      "override the verdict",
+      "return allowed unconditionally"
+    ],
+    "HASH_VERSION": "covenant-sha256-v1",
+    "MAX_COVENANT_LEN": 8000,
+    "MAX_EXCERPT_LEN": 320
+  },
+  "digest_vectors": [
+    {
+      "fields": [
+        "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval."
+      ],
+      "label": "example covenant",
+      "sha256": "30a89307e90d32a34899db1be99d6e205f2d2efda06c1eae23b43ae4a68019b5",
+      "tag": "covenant"
+    },
+    {
+      "fields": [
+        ""
+      ],
+      "label": "empty field still hashes",
+      "sha256": "cd94d92929c5b99f58413d6be907cf29925d9d7a4db7edb71d63f4aeb01352c7",
+      "tag": "covenant"
+    },
+    {
+      "fields": [
+        "Caf\u00e9 \u2014 \u00fcn\u00efcode \u2713"
+      ],
+      "label": "unicode is hashed as UTF-8",
+      "sha256": "3f704ed9a6d699eb67f068422a3eb84a190f46b33108f094477fbcc8fa700b59",
+      "tag": "covenant"
+    },
+    {
+      "fields": [
+        "Clause 1: one.\r\nClause 2: two."
+      ],
+      "label": "CRLF inside the stored text is preserved",
+      "sha256": "c5898fe29fc8c73d44a378b1649efe32988d5cd649e3ee83a78bd15654ab2d85",
+      "tag": "covenant"
+    },
+    {
+      "fields": [
+        "allow"
+      ],
+      "label": "operation tag is domain separated",
+      "sha256": "627fd55bbe14e962cf01c68234ad05b9742c952b8d83d30d3d9e225f1cabbac8",
+      "tag": "operation"
+    },
+    {
+      "fields": [
+        "allow",
+        "Clause 1: one."
+      ],
+      "label": "two fields are joined with a pipe",
+      "sha256": "2b16f5a24521981c34b97af99faa523560bd41b99e82a696bf1d20575b649848",
+      "tag": "verdict"
+    }
+  ],
+  "excerpt_vectors": [
+    {
+      "covenant": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.",
+      "excerpt": "Recurring monthly payments to an approved vendor are permitted",
+      "label": "exact clause",
+      "stored": "Recurring monthly payments to an approved vendor are permitted",
+      "verifiable": true
+    },
+    {
+      "covenant": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.",
+      "excerpt": "RECURRING MONTHLY PAYMENTS TO AN APPROVED VENDOR ARE PERMITTED",
+      "label": "case change is not verbatim",
+      "stored": null,
+      "verifiable": false
+    },
+    {
+      "covenant": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.",
+      "excerpt": "",
+      "label": "empty excerpt",
+      "stored": null,
+      "verifiable": false
+    },
+    {
+      "covenant": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.",
+      "excerpt": "   \n\t",
+      "label": "whitespace-only excerpt",
+      "stored": null,
+      "verifiable": false
+    },
+    {
+      "covenant": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.",
+      "excerpt": "  Clause 2: No single payment above 50000 may be released without multisig approval.  ",
+      "label": "surrounding whitespace is trimmed",
+      "stored": "Clause 2: No single payment above 50000 may be released without multisig approval.",
+      "verifiable": true
+    },
+    {
+      "covenant": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxTAIL",
+      "excerpt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxTAIL",
+      "label": "over-long excerpt keeps only its first 320 chars",
+      "stored": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "verifiable": true
+    },
+    {
+      "covenant": "short covenant",
+      "excerpt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxTAIL",
+      "label": "over-long excerpt whose prefix is absent fails",
+      "stored": null,
+      "verifiable": false
+    },
+    {
+      "covenant": "Clause 1: one.\r\nClause 2: two.",
+      "excerpt": "Clause 2: two.",
+      "label": "CRLF covenant keeps its exact bytes",
+      "stored": "Clause 2: two.",
+      "verifiable": true
+    },
+    {
+      "covenant": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.",
+      "excerpt": "permitted up to 5000 USD equivalent.",
+      "label": "citation may span clauses",
+      "stored": "permitted up to 5000 USD equivalent.",
+      "verifiable": true
+    }
+  ],
+  "normalization_vectors": [
+    {
+      "label": "trailing newline is stripped",
+      "raw": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.\n",
+      "stored": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval."
+    },
+    {
+      "label": "surrounding whitespace is stripped",
+      "raw": "  Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval.  ",
+      "stored": "Clause 1: Recurring monthly payments to an approved vendor are permitted up to 5000 USD equivalent.\nClause 2: No single payment above 50000 may be released without multisig approval."
+    },
+    {
+      "label": "internal CRLF is not rewritten",
+      "raw": "a\r\nb\r\n",
+      "stored": "a\r\nb"
+    },
+    {
+      "label": "blank input stores empty",
+      "raw": " \n\t ",
+      "stored": ""
+    }
+  ],
+  "provenance": {
+    "commit": "0034b5e40a886664ee6df84c585e23a0db84cb12",
+    "generated_by": "scripts/gen_fixture.py",
+    "path": "contracts/covenant_guard.py",
+    "repository": "https://github.com/vincentofweb3/covenant",
+    "sha256": "e55b9c3f082c17a300506f1645d8a349af5c11be70624e10dbf267d12bee2b12"
+  }
+}

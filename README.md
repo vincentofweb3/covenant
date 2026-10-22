@@ -54,13 +54,15 @@ Three rules follow, and they are the real content of the contract:
 contracts/covenant_guard.py    the primitive. 21 methods.
 contracts/treasury_vault.py    a worked example that proves the guard is load-bearing.
 
-tests/direct/                  120 tests. Single-contract state machine and judge seam.
+tests/direct/                  166 tests. Single-contract state machine and judge seam.
 tests/integration/             24 tests. Cross-contract lifecycle and consensus, on glsim.
 probe/                         20 tests. Behavioural probes that reject invented SDK APIs.
 
 scripts/preflight.py           architectural invariants + secret scan. Runs in CI.
 scripts/covctl.py              covenant compiler and policy linter.
                                Also published standalone: github.com/vincentofweb3/covctl
+fixtures/covenant_guard_constants.json
+                               contract-derived vectors used by covctl selftest
 
 docs/ARCHITECTURE.md           durable state, state machines, trust boundaries
 docs/CONSENSUS.md              the leader/validator protocol, precisely
@@ -88,7 +90,7 @@ $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/treasury_vault.py
   Methods: 11 (7 view, 4 write)
 
 $ python3 -m pytest tests/direct -q
-120 passed
+166 passed
 
 $ python3 -m pytest tests/integration -q
 24 passed

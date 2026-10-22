@@ -41,7 +41,7 @@ from pathlib import Path
 # Must match contracts/covenant_guard.py. Kept here as literals rather than
 # imported: importing the contract would require the GenVM SDK, and this tool
 # exists to run before anything is installed.
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 HASH_VERSION = "covenant-sha256-v1"
 MAX_COVENANT_LEN = 8000
 MAX_EXCERPT_LEN = 320
@@ -75,6 +75,25 @@ class Finding:
         return f"{self.severity.upper():7} {self.code}{where}: {self.message}"
 
 
+# --- exact input handling --------------------------------------------------
+
+
+def normalize_covenant(text: str) -> str:
+    """The contract's `_check_text` normalisation: `str(value).strip()`.
+
+    CovenantGuard stores the stripped text and hashes those bytes. The tool has
+    to do the same, otherwise a trailing newline silently changes the digest.
+    Internal bytes, including CRLF, are left untouched.
+    """
+    return str(text).strip()
+
+
+def read_covenant(path: str) -> str:
+    """Read without newline translation, so CRLF survives to the digest."""
+    with open(path, "r", encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
 # --- parsing ---------------------------------------------------------------
 
 
@@ -89,54 +108,79 @@ class Clause:
         return self.text.strip()
 
 
-CLAUSE_RE = re.compile(r"^\s*(?:clause\s+)?(\d+)\s*[.:)]?\s+(.*)$", re.IGNORECASE)
+CLAUSE_HEADER_RE = re.compile(
+    r"^[ \t]*(?:Clause[ \t]+(?P<named>\d+)[ \t]*[.:)]?|(?P<bare>\d+)[ \t]*[.:)])"
+    r"(?:[ \t]+(?P<rest>.*))?$",
+    re.IGNORECASE,
+)
+
+PARAGRAPH_GAP_RE = re.compile(r"(?:\r\n|\r|\n)[ \t]*(?:(?:\r\n|\r|\n)[ \t]*)+")
 
 
 def split_clauses(covenant: str) -> list[Clause]:
-    """Split a covenant into clauses.
+    """Split a covenant into the smallest units a model could cite.
 
-	Accepts either `Clause 3: ...` / `3. ...` numbering or blank-line separated
-	paragraphs. Numbering is preferred when present because it gives stable
-	labels for the lint report.
-	"""
+    Two shapes are supported, both taken from the exact stored bytes:
+
+    * numbered clauses -- ``Clause 3: ...`` or ``3. ...``; a leading
+      unnumbered block is reported as ``Preamble``;
+    * otherwise, blank-line separated paragraphs.
+
+    Numbering is preferred when present because it gives stable labels. The
+    returned text is always the exact substring of the stored covenant, so the
+    reported lengths and citations refer to text that really exists.
+    """
+    text = normalize_covenant(covenant)
+    if not text:
+        return []
+
+    lines = text.splitlines(keepends=True)
+    offsets: list[int] = []
+    position = 0
+    for line in lines:
+        offsets.append(position)
+        position += len(line)
+
+    headers: list[tuple[int, re.Match]] = []
+    for index, line in enumerate(lines):
+        match = CLAUSE_HEADER_RE.match(line.rstrip("\r\n"))
+        if match:
+            headers.append((index, match))
+
     clauses: list[Clause] = []
-    current_label: str | None = None
-    current_lines: list[str] = []
-    current_line = 1
 
-    def flush() -> None:
-        nonlocal current_label, current_lines, current_line
-        if current_label is not None and current_lines:
-            body = " ".join(part.strip() for part in current_lines).strip()
+    if headers:
+        preamble = text[: offsets[headers[0][0]]].strip()
+        if preamble:
+            clauses.append(Clause("Preamble", preamble, 1))
+        for order, (index, match) in enumerate(headers):
+            inline = match.group("rest")
+            start = offsets[index] + (match.start("rest") if inline is not None else match.end())
+            stop = offsets[headers[order + 1][0]] if order + 1 < len(headers) else len(text)
+            body = text[start:stop].strip()
             if body:
-                clauses.append(Clause(current_label, body, current_line))
-        current_label = None
-        current_lines = []
+                number = match.group("named") or match.group("bare")
+                clauses.append(Clause(f"Clause {number}", body, index + 1))
+        return clauses
 
-    for index, raw in enumerate(covenant.splitlines(), start=1):
-        match = CLAUSE_RE.match(raw)
-        if match and match.group(2).strip():
-            flush()
-            current_label = f"Clause {match.group(1)}"
-            current_line = index
-            current_lines = [match.group(2)]
-        elif current_label is not None and raw.strip():
-            current_lines.append(raw)
-        elif current_label is None and raw.strip():
-            # Unnumbered opening text is kept as a clause so it can be linted.
-            clauses.append(Clause("Preamble", raw.strip(), index))
-    flush()
+    gaps = list(PARAGRAPH_GAP_RE.finditer(text))
+    starts = [0] + [gap.end() for gap in gaps]
+    stops = [gap.start() for gap in gaps] + [len(text)]
+    for number, (start, stop) in enumerate(zip(starts, stops), start=1):
+        body = text[start:stop].strip()
+        if body:
+            clauses.append(Clause(f"Paragraph {number}", body, text.count("\n", 0, start) + 1))
     return clauses
-
 
 # --- the linter ------------------------------------------------------------
 
 
 def lint(covenant: str) -> list[Finding]:
+    covenant = normalize_covenant(covenant)
     findings: list[Finding] = []
     clauses = split_clauses(covenant)
 
-    if not covenant.strip():
+    if not covenant:
         findings.append(Finding("error", "E001", "the covenant is empty"))
         return findings
 
@@ -170,12 +214,12 @@ def lint(covenant: str) -> list[Finding]:
         if length > MAX_EXCERPT_LEN:
             findings.append(
                 Finding(
-                    "error",
-                    "E010",
-                    f"{clause.label} is {length} chars, over the {MAX_EXCERPT_LEN}-char "
-                    f"citation cap. An ALLOWED verdict citing it cannot pass the "
-                    f"verbatim-excerpt check, so it will be downgraded to AMBIGUOUS. "
-                    f"Split the clause.",
+                    "warning",
+                    "W010",
+                    f"{clause.label} is {length} chars, so it cannot be cited in full: "
+                    f"the contract truncates a citation at {MAX_EXCERPT_LEN} chars. A "
+                    f"ruling must rely on a fragment, which may omit part of the "
+                    f"condition. Split the clause.",
                     clause.line,
                 )
             )
@@ -201,6 +245,17 @@ def lint(covenant: str) -> list[Finding]:
                 f"{len(permits)} permitting and {len(prohibits)} prohibiting clause(s). "
                 f"Confirm none address the same subject; the model cannot resolve a "
                 f"genuine contradiction and will pick one.",
+            )
+        )
+
+    if prohibits and not permits:
+        findings.append(
+            Finding(
+                "warning",
+                "W012",
+                "no clause permits anything: every rule forbids. A compliant action and "
+                "an action the policy never mentions look the same to the model, so the "
+                "guard can only refuse. Add an explicit permitting clause.",
             )
         )
 
@@ -299,40 +354,57 @@ def lint(covenant: str) -> list[Finding]:
 # --- digest ----------------------------------------------------------------
 
 
+def _digest(tag: str, fields: list) -> str:
+    """The contract's `_digest`, reproduced exactly."""
+    payload = "|".join([HASH_VERSION, tag] + [str(field) for field in fields])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def covenant_digest(covenant: str) -> str:
     """Byte-identical to `covenant_guard._digest("covenant", [text])`.
 
-	That function is:
+    The contract hashes ``_check_text(covenant, ...)``, which strips the text.
+    Normalising here is not cosmetic: a file with a trailing newline would
+    otherwise hash differently from what the chain stores.
+    """
+    return _digest("covenant", [normalize_covenant(covenant)])
 
-	```python
-	def _digest(tag, fields):
-	    payload = "|".join([HASH_VERSION, tag] + [str(f) for f in fields])
-	    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-	```
 
-	`selftest` proves the two agree against the real contract.
-	"""
-    payload = "|".join([HASH_VERSION, "covenant", covenant])
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+def excerpt_decision(covenant: str, excerpt: str) -> tuple[bool, str]:
+    """Mirror the contract's decision path for a model-supplied excerpt.
 
+    ``_normalize`` strips the excerpt and truncates it to ``MAX_EXCERPT_LEN``
+    *before* the substring check. An over-long citation is therefore not
+    rejected; its tail is ignored. ``_excerpt_is_verifiable`` is stricter, but
+    it only ever sees the already-truncated value.
+    """
+    text = normalize_covenant(covenant)
+    candidate = str(excerpt).strip()
+    if candidate == "":
+        return False, "empty"
+    truncated = len(candidate) > MAX_EXCERPT_LEN
+    candidate = candidate[:MAX_EXCERPT_LEN]
+    if candidate not in text:
+        return False, "not_in_covenant"
+    return True, "truncated" if truncated else "ok"
 
 # --- commands --------------------------------------------------------------
 
 
 def cmd_lint(args: argparse.Namespace) -> int:
-    covenant = Path(args.path).read_text(encoding="utf-8")
+    covenant = normalize_covenant(read_covenant(args.path))
     findings = lint(covenant)
 
     for finding in findings:
         print(finding.render())
 
-    errors = sum(1 for f in findings if f.severity == "error")
-    warnings = sum(1 for f in findings if f.severity == "warning")
-    infos = sum(1 for f in findings if f.severity == "info")
+    errors = sum(1 for finding in findings if finding.severity == "error")
+    warnings = sum(1 for finding in findings if finding.severity == "warning")
+    infos = sum(1 for finding in findings if finding.severity == "info")
     clauses = len(split_clauses(covenant))
 
     print()
-    print(f"{clauses} clause(s), {len(covenant)} chars")
+    print(f"{clauses} clause(s), {len(covenant)} chars (contract length)")
     print(f"{errors} error(s), {warnings} warning(s), {infos} info")
 
     if args.strict and warnings:
@@ -341,8 +413,8 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 
 def cmd_compile(args: argparse.Namespace) -> int:
-    covenant = Path(args.path).read_text(encoding="utf-8")
-    findings = [f for f in lint(covenant) if f.severity == "error"]
+    covenant = normalize_covenant(read_covenant(args.path))
+    findings = [finding for finding in lint(covenant) if finding.severity == "error"]
     if findings:
         print("refusing to compile a covenant with errors:")
         for finding in findings:
@@ -355,8 +427,8 @@ def cmd_compile(args: argparse.Namespace) -> int:
         "hash": covenant_digest(covenant),
         "length": len(covenant),
         "clauses": [
-            {"label": c.label, "line": c.line, "citable": c.citable, "chars": len(c.citable)}
-            for c in clauses
+            {"label": clause.label, "line": clause.line, "citable": clause.citable, "chars": len(clause.citable)}
+            for clause in clauses
         ],
     }
     print(json.dumps(compiled, indent=2, sort_keys=True))
@@ -364,70 +436,148 @@ def cmd_compile(args: argparse.Namespace) -> int:
 
 
 def cmd_digest(args: argparse.Namespace) -> int:
-    covenant = Path(args.path).read_text(encoding="utf-8")
-    print(covenant_digest(covenant))
+    print(covenant_digest(read_covenant(args.path)))
     return 0
 
 
 def cmd_check_excerpt(args: argparse.Namespace) -> int:
-    """Mirror of the contract's on-chain check, run locally."""
-    covenant = Path(args.path).read_text(encoding="utf-8")
-    excerpt = args.excerpt
+    """Mirror the contract's decision path, including its truncation order."""
+    covenant = read_covenant(args.path)
+    ok, reason = excerpt_decision(covenant, args.excerpt)
 
-    if excerpt == "":
-        print("INVALID: an ALLOWED verdict must cite a clause; the excerpt is empty")
+    if not ok:
+        if reason == "empty":
+            print("INVALID: an ALLOWED verdict must cite a clause; the excerpt is empty after trimming")
+        else:
+            print("INVALID: excerpt does not occur verbatim in the stored covenant")
+            print("        the contract would discard it and record AMBIGUOUS / UNVERIFIED_EXCERPT")
         return 1
-    if len(excerpt) > MAX_EXCERPT_LEN:
+
+    candidate = args.excerpt.strip()[:MAX_EXCERPT_LEN]
+    if reason == "truncated":
         print(
-            f"INVALID: excerpt is {len(excerpt)} chars, over the {MAX_EXCERPT_LEN}-char cap; "
-            f"the contract truncates and the citation stops matching"
+            f"VALID (truncated): the contract ignores everything after {MAX_EXCERPT_LEN} chars; "
+            f"the retained prefix matches"
         )
-        return 1
-    if excerpt not in covenant:
-        print("INVALID: excerpt does not occur verbatim in the covenant")
-        print("        the contract would discard it and record AMBIGUOUS / UNVERIFIED_EXCERPT")
-        return 1
 
-    clause = next((c for c in split_clauses(covenant) if excerpt in c.text), None)
+    clause = next((c for c in split_clauses(covenant) if candidate in c.text), None)
     print(f"VALID: cited from {clause.label}" if clause else "VALID: cited verbatim")
     return 0
 
 
-def cmd_selftest(args: argparse.Namespace) -> int:
-    """Check the compiler's digest against the real contract, if reachable."""
+# --- self-test against the contract ----------------------------------------
+
+FIXTURE_NAME = "covenant_guard_constants.json"
+
+
+def _fixture_candidates() -> list[Path]:
     here = Path(__file__).resolve()
-    contract = Path(os.environ.get("COVENANT_GUARD") or (here.parent / "contracts" / "covenant_guard.py"))
-    if not contract.exists() and "COVENANT_GUARD" not in os.environ:
-        sibling = here.parent.parent / "contracts" / "covenant_guard.py"
-        if sibling.exists():
-            contract = sibling
-    if not contract.exists():
-        print("SKIP: covenant_guard.py not found (set COVENANT_GUARD=/path/to/covenant_guard.py)")
-        return 0
+    candidates: list[Path] = []
+    override = os.environ.get("COVCTL_FIXTURE")
+    if override:
+        candidates.append(Path(override))
+    candidates += [
+        here.parent / "fixtures" / FIXTURE_NAME,
+        here.parent.parent / "fixtures" / FIXTURE_NAME,
+        Path(sys.prefix) / "share" / "covctl" / FIXTURE_NAME,
+    ]
+    return candidates
 
-    # The contract needs the GenVM SDK to import, which defeats the point of a
-    # dependency-free tool. So re-implement its digest the way a reviewer would,
-    # and prove the two agree by comparing against the deployed-test digest.
-    source = contract.read_text(encoding="utf-8")
-    expected_marker = 'HASH_VERSION = "covenant-sha256-v1"'
-    if expected_marker not in source:
-        print(f"FAIL: contract does not declare {expected_marker}")
+
+def load_fixture() -> dict | None:
+    """Load the checked-in, contract-derived fixture, or None."""
+    for candidate in _fixture_candidates():
+        if candidate.is_file():
+            return json.loads(candidate.read_text(encoding="utf-8"))
+    return None
+
+
+def _contract_candidates() -> list[Path]:
+    here = Path(__file__).resolve()
+    candidates: list[Path] = []
+    override = os.environ.get("COVENANT_GUARD")
+    if override:
+        candidates.append(Path(override))
+    candidates += [
+        here.parent / "contracts" / "covenant_guard.py",
+        here.parent.parent / "contracts" / "covenant_guard.py",
+    ]
+    return candidates
+
+
+def locate_contract() -> Path | None:
+    for candidate in _contract_candidates():
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def cmd_selftest(args: argparse.Namespace) -> int:
+    """Fail-closed parity check against the contract or its pinned fixture.
+
+    The fixture is checked in, so this works without the contract repository or
+    the GenVM runner. When the contract source *is* present, its sha256 must
+    match the pinned provenance, which turns silent drift into a hard failure.
+    """
+    fixture = load_fixture()
+    if fixture is None:
+        print("FAIL: no contract-derived fixture found; refusing to claim parity")
+        for candidate in _fixture_candidates():
+            print(f"      looked in {candidate}")
+        print("      generate one with scripts/gen_fixture.py or set COVCTL_FIXTURE")
         return 1
 
-    fixture = "Clause 1: no payment above 50000 without multisig approval."
-    digest = covenant_digest(fixture)
+    failures: list[str] = []
+    constants = fixture["constants"]
+    expected = {
+        "HASH_VERSION": HASH_VERSION,
+        "MAX_COVENANT_LEN": MAX_COVENANT_LEN,
+        "MAX_EXCERPT_LEN": MAX_EXCERPT_LEN,
+        "CONTROL_MARKERS": list(CONTROL_MARKERS),
+    }
+    for name, value in expected.items():
+        if constants.get(name) != value:
+            failures.append(f"{name}: tool={value!r} fixture={constants.get(name)!r}")
 
-    # Independently, by hand, from the contract's stated formula.
-    manual = hashlib.sha256("|".join(["covenant-sha256-v1", "covenant", fixture]).encode("utf-8"))
-    if manual.hexdigest() != digest:
-        print("FAIL: digest implementation is internally inconsistent")
+    for vector in fixture["normalization_vectors"]:
+        got = normalize_covenant(vector["raw"])
+        if got != vector["stored"]:
+            failures.append(f"normalize {vector['label']}: tool={got!r} fixture={vector['stored']!r}")
+
+    for vector in fixture["digest_vectors"]:
+        got = _digest(vector["tag"], vector["fields"])
+        if got != vector["sha256"]:
+            failures.append(f"digest {vector['label']}: tool={got} fixture={vector['sha256']}")
+
+    for vector in fixture["excerpt_vectors"]:
+        got, _ = excerpt_decision(vector["covenant"], vector["excerpt"])
+        if got != vector["verifiable"]:
+            failures.append(f"excerpt {vector['label']}: tool={got} fixture={vector['verifiable']}")
+
+    source = locate_contract()
+    if source is not None:
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        pinned = fixture["provenance"]["sha256"]
+        if digest != pinned:
+            failures.append(f"contract source sha256 {digest} != pinned {pinned}")
+
+    if failures:
+        print("FAIL: tool and contract fixture disagree")
+        for failure in failures:
+            print(f"  - {failure}")
         return 1
 
-    print(f"OK: digest formula matches the contract's HASH_VERSION ({digest[:16]}…)")
-    print("NOTE: the contract imports cleanly only under the GenVM runner; the")
-    print("      byte-level agreement is asserted by tests/direct/test_covenant_guard.py")
+    provenance = fixture["provenance"]
+    print(
+        f"OK: {len(fixture['normalization_vectors'])} normalization, "
+        f"{len(fixture['digest_vectors'])} digest and "
+        f"{len(fixture['excerpt_vectors'])} excerpt vectors match the contract"
+    )
+    print(f"    fixture: {provenance['repository']}/{provenance['path']} @ {provenance['commit'][:12]}")
+    print(f"    sha256:  {provenance['sha256']}")
+    if source is None:
+        print("    contract source not present; verified against the checked-in fixture")
     return 0
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(

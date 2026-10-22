@@ -222,6 +222,13 @@ Note there is a **newer OLD-generation runner**, `1zr6nqk5…`, in the same tarb
 Untested here. Staying on `1jb45aa8…` because it is the one already proven
 deployed to studionet twice.
 
+**2026-10-22: the release asset was renamed.** `genvm-universal.tar.xz` was
+withdrawn from the v0.3.0-rc7 release. `genvm-runners-all.tar.xz` is the same
+134,842,512-byte file (sha256 `e218a1854214681560351051f76fe2b878545cf3409455ef372d57014a88ca67`).
+`gltest` 0.29.2 still requests the old name, so CI stages the new asset at
+`~/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz` and verifies that
+sha256 before any deploy. Local caches were unaffected.
+
 ## 12. Five direct-mode constraints, all observed, none documented anywhere
 
 These are properties of `gltest` 0.29.2 direct mode, established by probe:

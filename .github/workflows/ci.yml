@@ -14,9 +14,29 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Cache the GenVM bundle
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz
+          key: genvm-v0.3.0-rc7-runners-all-e218a185
+
+      - name: Fetch the GenVM bundle
+        # The v0.3.0-rc7 release no longer publishes genvm-universal.tar.xz.
+        # genvm-runners-all.tar.xz is the same 134,842,512-byte bundle under a
+        # new name, so stage it at the path gltest expects before any deploy.
+        run: |
+          target="$HOME/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz"
+          mkdir -p "$(dirname "$target")"
+          if [ ! -f "$target" ]; then
+            curl -fL --retry 5 --retry-delay 2 \
+              -o "$target" \
+              "https://github.com/genlayerlabs/genvm/releases/download/v0.3.0-rc7/genvm-runners-all.tar.xz"
+          fi
+          echo "e218a1854214681560351051f76fe2b878545cf3409455ef372d57014a88ca67  $target" | sha256sum -c -
+
       - name: Preflight invariants and secret scan
-        # Deliberably first and dependency-free: it must catch a broken runtime
-        # pin before anything is installed.
+        # Dependency-free and before the toolchain is installed: it must catch a
+        # broken runtime pin early.
         run: python3 scripts/preflight.py
 
       - name: Install toolchain
@@ -54,6 +74,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Cache the GenVM bundle
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz
+          key: genvm-v0.3.0-rc7-runners-all-e218a185
+
+      - name: Fetch the GenVM bundle
+        # The v0.3.0-rc7 release no longer publishes genvm-universal.tar.xz.
+        # genvm-runners-all.tar.xz is the same 134,842,512-byte bundle under a
+        # new name, so stage it at the path gltest expects before any deploy.
+        run: |
+          target="$HOME/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz"
+          mkdir -p "$(dirname "$target")"
+          if [ ! -f "$target" ]; then
+            curl -fL --retry 5 --retry-delay 2 \
+              -o "$target" \
+              "https://github.com/genlayerlabs/genvm/releases/download/v0.3.0-rc7/genvm-runners-all.tar.xz"
+          fi
+          echo "e218a1854214681560351051f76fe2b878545cf3409455ef372d57014a88ca67  $target" | sha256sum -c -
 
       - name: Preflight invariants and secret scan
         run: python3 scripts/preflight.py

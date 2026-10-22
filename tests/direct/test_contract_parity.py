@@ -6,6 +6,7 @@ still fails. `fixtures/covenant_guard_constants.json` records where the values
 came from and the sha256 of the source they were extracted from.
 """
 
+import ast
 import hashlib
 import json
 import sys
@@ -19,7 +20,11 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import covctl  # noqa: E402
 
 FIXTURE_PATH = REPO_ROOT / "fixtures" / "covenant_guard_constants.json"
-SOURCE = REPO_ROOT / "contracts" / "covenant_guard.py"
+SOURCES = [
+    REPO_ROOT / "vendor" / "covenant_guard.py",
+    REPO_ROOT / "contracts" / "covenant_guard.py",
+]
+SOURCE = next((path for path in SOURCES if path.is_file()), SOURCES[0])
 
 
 @pytest.fixture(scope="module")
@@ -114,10 +119,32 @@ def test_covenant_digest_uses_the_contracts_tag_and_version(fixture):
     assert covctl.covenant_digest(text + "\n") == expected
 
 
-@pytest.mark.skipif(not SOURCE.is_file(), reason="contract source not checked out")
-def test_the_pinned_source_has_not_drifted(fixture):
+def test_the_vendored_source_matches_the_pinned_sha256(fixture):
+    assert SOURCE.is_file()
     digest = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
     assert digest == fixture["provenance"]["sha256"]
+
+
+def test_constants_extracted_from_the_source_match_the_fixture(fixture):
+    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    found = {}
+    tracked = {"HASH_VERSION", "MAX_COVENANT_LEN", "MAX_EXCERPT_LEN", "CONTROL_MARKERS"}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name) and target.id in tracked:
+                found[target.id] = ast.literal_eval(node.value)
+    for name, value in found.items():
+        expected = list(value) if name == "CONTROL_MARKERS" else value
+        assert expected == fixture["constants"][name], name
+
+
+def test_the_source_still_implements_the_pinned_rules():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert 'payload = "|".join([HASH_VERSION, tag] + [str(f) for f in fields])' in source
+    assert 'hashlib.sha256(payload.encode("utf-8")).hexdigest()' in source
+    assert "if len(text) > limit:" in source
+    assert ".strip()[:MAX_EXCERPT_LEN]" in source
 
 
 def test_the_covenant_length_limit_is_exact(fixture):

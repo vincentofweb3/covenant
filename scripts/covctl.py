@@ -501,6 +501,9 @@ def _contract_candidates() -> list[Path]:
     candidates += [
         here.parent / "contracts" / "covenant_guard.py",
         here.parent.parent / "contracts" / "covenant_guard.py",
+        here.parent / "vendor" / "covenant_guard.py",
+        here.parent.parent / "vendor" / "covenant_guard.py",
+        Path(sys.prefix) / "share" / "covctl" / "covenant_guard.py",
     ]
     return candidates
 

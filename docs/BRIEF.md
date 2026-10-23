@@ -87,9 +87,11 @@ immutable. That limit is stated in `docs/THREAT_MODEL.md` §2.6.
 2. Attest the recipient as `approved`/`clear`; attest a removed vendor as
    `not_approved`; deploy the vault, register it, deposit.
 3. Request a 120,000 payment with no approvals → `VIOLATED` → refused.
-4. Approve the same 120,000 binding with two distinct signers → `ALLOWED` →
-   executes.
-5. Request a 900 payment to the approved vendor → `ALLOWED` → executes.
+4. Request a 900 recurring payment with two recorded signer approvals →
+   `ALLOWED` → executes. The approvals are acquired and bound in the ruling;
+   the approval-required path is covered deterministically in `tests/`.
+5. Request a 900 payment to the approved vendor without approvals → `ALLOWED`
+   → executes.
 6. Request a payment to the `not_approved` vendor → `VIOLATED` → refused.
 7. Amend the covenant to raise the threshold to 250,000 with two approvers and
    an elapsed timelock. Re-run the 120,000 payment without approvals → now

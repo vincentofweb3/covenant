@@ -16,9 +16,15 @@ this record, which is what gets compared:
   "reason_code": "CITED_CLAUSE | POLICY_DENIAL | EVIDENCE_INSUFFICIENT | ...",
   "excerpt": "a verbatim substring of the covenant, or empty",
   "input_digest": "sha256 over the frozen operation",
-  "covenant_digest": "sha256 over the covenant in force"
+  "covenant_digest": "sha256 over the covenant in force",
+  "evidence_digest": "sha256 over the contract-acquired evidence bundle"
 }
 ```
+
+`evidence_digest` is computed by the contract *before* the non-deterministic
+block starts. It covers the subject, both claim digests, the approval count, the
+canonical list of approving signers, and the operation binding. The model is
+told it may echo the digest, but cannot choose it.
 
 Validators compare **normalised results**, never free-form reasoning. Two models
 that reach the same conclusion by different reasoning agree; two that reach the
@@ -30,7 +36,7 @@ theirs.
 ```python
 def leader_fn() -> dict:
     raw = gl.nondet.exec_prompt(prompt, response_format="text")
-    return _normalize(raw, covenant_text, input_digest, covenant_digest)
+    return _normalize(raw, covenant_text, input_digest, covenant_digest, evidence_digest)
 ```
 
 Two deliberate choices:
@@ -68,6 +74,7 @@ def validator_fn(leader_result) -> bool:
         and leader_data.get("excerpt")      == own.get("excerpt")
         and leader_data.get("input_digest") == own.get("input_digest")
         and leader_data.get("covenant_digest") == own.get("covenant_digest")
+        and leader_data.get("evidence_digest") == own.get("evidence_digest")
     )
 ```
 
@@ -95,10 +102,28 @@ Three properties worth naming:
 | `AMBIGUOUS` | `AMBIGUOUS` / `EVIDENCE_INSUFFICIENT` | yes |
 | unparseable reply | `AMBIGUOUS` / `MALFORMED_OUTPUT` | yes |
 | wrong digest echo | `AMBIGUOUS` / `DIGEST_MISMATCH` | yes |
+| missing or expired attestation | *transaction reverts, no ruling* | yes |
+| unauthenticated/foreign attestation | *transaction reverts, no ruling* | yes |
 | validator disagreement | *no ruling written* | yes |
 
 `MODEL_FAILURE_REASONS` separates "the model failed" from "the evidence was
 insufficient". Both block identically; only one is a finding about the operation.
+
+## Evidence acquisition happens before the nondeterministic block
+
+`judge_operation` loads the operation, reads the current vendor and risk claims
+for its subject, checks role, status, expiry and claim digest, counts approvals
+of the exact binding, and computes `evidence_digest` — all deterministically.
+Only then does it call `run_nondet`.
+
+Two consequences:
+
+- A missing, expired or malformed claim is a **transaction failure**, not a
+  model judgement. The contract never asks the model to rule on evidence it
+  could not acquire.
+- `leader_fn` and `validator_fn` close over the already-acquired bundle and
+  digest. They do not read storage inside the nondeterministic block, which is
+  what makes independent validator re-derivation well-defined.
 
 ## Two harness facts that constrain what can be claimed
 

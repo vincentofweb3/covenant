@@ -167,3 +167,12 @@ def test_the_excerpt_limit_is_exact(fixture):
     assert covctl.excerpt_decision(exact, exact) == (True, "ok")
     assert covctl.excerpt_decision(exact + "y", exact + "y") == (True, "truncated")
     assert covctl.excerpt_decision(exact[:-1], exact)[0] is False
+
+
+def test_a_dirty_fixture_is_explicitly_marked_and_matches_the_working_tree(fixture):
+	provenance = fixture["provenance"]
+	if provenance.get("dirty"):
+		assert provenance.get("note")
+		assert provenance["sha256"] == hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+	else:
+		assert "dirty" not in provenance

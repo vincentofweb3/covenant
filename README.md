@@ -17,6 +17,13 @@ consensus whether each proposed movement complies, **before the value moves**.
 
 It is not doable on an EVM. That is the whole argument.
 
+The policy facts the model reasons about are not supplied by the requester. A
+procurement attestor and a risk attestor, fixed at deployment, write structured
+claims on-chain; the guard reads them at ruling time, binds their digest into the
+ruling, and the vault re-checks that binding before it moves anything. Provenance
+is the attestor's authenticated transaction, not a paragraph attached to the
+payment request.
+
 ---
 
 ## The idea
@@ -45,17 +52,27 @@ Three rules follow, and they are the real content of the contract:
   distinctly from a ruling of `VIOLATED`.
 - **The guard cannot be rewritten by whoever it is guarding.** Covenant
   amendments need a quorum of distinct approvers plus a timelock.
+- **The requester cannot supply the facts.** `propose_operation` takes the
+  instruction and the subject, never evidence text. Vendor and risk claims are
+  role-gated, subject-keyed, expiring records; approvals are bound to one exact
+  operation binding. A missing or expired claim fails closed.
+
+The evidence amendment was forced by a review finding, not added for polish: the
+first version accepted a free-text evidence string, so a requester could assert
+"vendor approved" and have the model reason about the assertion. The excerpt
+check proved the policy clause existed; it did not verify the fact. See
+`docs/THREAT_MODEL.md` §2.6.
 
 ---
 
 ## What is in here
 
 ```
-contracts/covenant_guard.py    the primitive. 21 methods.
+contracts/covenant_guard.py    the primitive. 28 methods.
 contracts/treasury_vault.py    a worked example that proves the guard is load-bearing.
 
-tests/direct/                  168 tests. Single-contract state machine and judge seam.
-tests/integration/             24 tests. Cross-contract lifecycle and consensus, on glsim.
+tests/direct/                  190 tests. State machine, judge seam, evidence provenance.
+tests/integration/             29 tests. Cross-contract lifecycle and consensus, on glsim.
 probe/                         20 tests. Behavioural probes that reject invented SDK APIs.
 
 scripts/preflight.py           architectural invariants + secret scan. Runs in CI.
@@ -83,17 +100,17 @@ $ python3 scripts/preflight.py
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/covenant_guard.py
 ✓ Validation passed
-  Methods: 21 (13 view, 8 write)
+  Methods: 28 (17 view, 11 write)
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/treasury_vault.py
 ✓ Validation passed
   Methods: 11 (7 view, 4 write)
 
 $ python3 -m pytest tests/direct -q
-168 passed
+190 passed
 
 $ python3 -m pytest tests/integration -q
-24 passed
+29 passed
 ```
 
 `GENVM_VERSION=v0.3.0-rc7` is **required** for the `genvm-lint check` commands.
@@ -120,6 +137,11 @@ block reports `gasUsed` 0 — so no funded account or faucet is needed.
 
 ### Live deployment
 
+**Pre-amendment run.** The addresses and evidence below predate the evidence-
+provenance amendment and do not contain attestation or approval transactions. The
+amended contracts are not deployed yet. Do not cite this run for the provenance
+claim; re-run `scripts/live_demo.py` after the amendment is committed.
+
 | Contract | Address |
 |---|---|
 | `covenant_guard` | `0xC5335e9A9F96fE77Ca8944E01e11085296E88556` |
@@ -135,7 +157,7 @@ Reproduce: `python3 scripts/live_demo.py`.
 
 ---
 
-## The vault, and one decision it forced
+## The vault, and two decisions it forced
 
 A guard nobody must consult is a guard nobody will consult, so `treasury_vault.py`
 exists to show the enforcement happening: it asks the guard to rule, then
@@ -163,6 +185,12 @@ obtained for one payload cannot be spent on another.
 No demo would ever have surfaced that bug, because in a demo the proposer is
 honest.
 
+The second decision is the amendment. The vault does not forward an evidence
+paragraph either. It supplies the recipient; the guard acquires the vendor and
+risk claims for that recipient and the signers' approvals of that exact binding.
+The vault refuses execution unless the ruling carries the same evidence subject
+and digest that the guard stored on the operation.
+
 ---
 
 ## Honest limitations
@@ -182,6 +210,7 @@ These are not hedges. They are the claims this project does **not** make.
 4. **The prompt-injection denylist is not a security boundary** and is not
    claimed to be. What holds is structural: authority requires a substring of
    stored covenant bytes, so an injected instruction cannot manufacture it.
+   The evidence is contract-acquired, so the requester cannot inject facts.
 5. **The excerpt check proves a clause is real, not that it applies.** A model may
    cite a genuine clause that does not support the operation. That residual
    semantic risk is irreducible here and is stated in `docs/THREAT_MODEL.md` §2.1.
@@ -190,6 +219,12 @@ These are not hedges. They are the claims this project does **not** make.
 7. **No gas, cost, size or fuzzing analysis.**
 8. **Quorum is a policy choice, not a proof.** `MIN_QUORUM = 2` means two keys
    can legitimately rewrite the covenant through the proper process.
+9. **The evidence roles are trusted and immutable.** The contract proves which
+   attestor wrote a claim and when; it does not prove the claim is true. There
+   is no rotation or revocation, and a compromised attestor key can lie until
+   redeployment.
+10. **Evidence is a ruling-time snapshot.** A claim valid when the guard ruled
+    may expire before the vault executes. The vault does not re-check expiry.
 
 ## Licence
 

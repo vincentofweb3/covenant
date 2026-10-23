@@ -9,13 +9,17 @@ AGREE/AGREE/IDLE/AGREE/AGREE.
 What this demonstrates
 ---------------------
 1. a compliant recurring payment is ALLOWED and moves value
-2. an oversized payment is VIOLATED and is refused
-3. a payment to a non-approved counterparty is VIOLATED and is refused
-4. the covenant is amended by quorum + timelock
-5. the *same* oversized payment is now ALLOWED and moves value
+2. a large payment with two distinct signer approvals is ALLOWED and moves value
+3. the *same* large payment without approvals is VIOLATED and is refused
+4. a payment to a vendor whose on-chain claim is `not_approved` is VIOLATED
+5. the covenant is amended by quorum + timelock
+6. the same large payment is now under the raised threshold and is ALLOWED
 
-Step 5 is the point: enforcement tracks the policy actually in force, not a
-snapshot taken at deploy time.
+The facts in steps 1-4 are not supplied by the requester. Procurement and risk
+attestors, fixed at deployment, write claims for the recipient; the guard reads
+them at ruling time and binds their digest into the ruling. Step 6 is the same
+point as before: enforcement tracks the policy actually in force, not a snapshot
+taken at deploy time.
 
 What this cannot demonstrate on-chain
 -------------------------------------
@@ -24,12 +28,17 @@ which cannot be provoked from outside. It is proven in `tests/direct/` and
 `tests/integration/` with an injected hallucinating model, and that distinction
 is recorded rather than blurred.
 
+Attestor honesty. The demo proves that the guard reads claims written by the
+configured role and binds them into the ruling; it cannot prove that the role key
+is honest. That trust assumption is stated in `docs/THREAT_MODEL.md` §2.6.
+
 Usage:
     python3 scripts/live_demo.py
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import time
@@ -52,6 +61,11 @@ DEPOSIT = 1_000_000
 SMALL_PAYMENT = 900
 OVERSIZED_PAYMENT = 120_000
 PROHIBITED_PAYMENT = 500
+
+# Fixed evidence roles. Gasless studionet means these accounts need no balance.
+PROCUREMENT_KEY = "0x" + ("6b" * 32)
+RISK_KEY = "0x" + ("6c" * 32)
+PROHIBITED_VENDOR = "0x" + ("99" * 20)
 
 COVENANT_FILE = REPO_ROOT / "examples" / "covenant.md"
 GUARD_FILE = REPO_ROOT / "contracts" / "covenant_guard.py"
@@ -240,9 +254,18 @@ def main() -> int:
 	print()
 
 	covenant = COVENANT_FILE.read_text(encoding="utf-8")
+	procurement_account = create_account(PROCUREMENT_KEY)
+	risk_account = create_account(RISK_KEY)
+	signer_b_account = create_account(SECOND_APPROVER_KEY)
+	procurement = to_checksum_address(procurement_account.address)
+	risk = to_checksum_address(risk_account.address)
+	signer_b = to_checksum_address(signer_b_account.address)
 
 	print("DEPLOY")
-	guard, _ = live.deploy(GUARD_FILE, [covenant, QUORUM, TIMELOCK_SECONDS])
+	guard, _ = live.deploy(
+		GUARD_FILE,
+		[covenant, QUORUM, TIMELOCK_SECONDS, procurement, risk, deployer, signer_b],
+	)
 	print(f"  guard                                      {guard}")
 	vault, _ = live.deploy(VAULT_FILE, [guard, deployer])
 	print(f"  vault                                      {vault}")
@@ -250,9 +273,73 @@ def main() -> int:
 
 	print("SETUP")
 	live.read(guard, "get_governance", [], "guard governance")
+	live.read(guard, "get_attestors", [], "evidence attestors")
 	live.write(guard, "register_vault", ["setup-register", vault], "guard.register_vault")
 	live.write(vault, "deposit", ["setup-deposit", DEPOSIT], f"vault.deposit({DEPOSIT:,})")
 	live.read(vault, "get_balance", [], "vault balance")
+	print()
+
+	print("ATTESTATIONS")
+	claim_until = int(time.time()) + 30 * 24 * 3600
+	claim_digest = hashlib.sha256(b"covenant demo vendor approval v1").hexdigest()
+	live.write(
+		guard,
+		"attest_vendor",
+		[
+			"attest-vendor-on",
+			deployer,
+			"approved",
+			claim_until,
+			"https://risk.example.test/vendors/" + deployer.lower(),
+			claim_digest,
+		],
+		"guard.attest_vendor(approved)",
+		account=procurement_account,
+	)
+	live.write(
+		guard,
+		"attest_risk",
+		[
+			"attest-risk-on",
+			deployer,
+			"clear",
+			claim_until,
+			"https://risk.example.test/risk/" + deployer.lower(),
+			claim_digest,
+		],
+		"guard.attest_risk(clear)",
+		account=risk_account,
+	)
+	live.write(
+		guard,
+		"attest_vendor",
+		[
+			"attest-vendor-off",
+			PROHIBITED_VENDOR,
+			"not_approved",
+			claim_until,
+			"https://risk.example.test/vendors/" + PROHIBITED_VENDOR[2:],
+			claim_digest,
+		],
+		"guard.attest_vendor(not_approved)",
+		account=procurement_account,
+	)
+	live.write(
+		guard,
+		"attest_risk",
+		[
+			"attest-risk-off",
+			PROHIBITED_VENDOR,
+			"clear",
+			claim_until,
+			"https://risk.example.test/risk/" + PROHIBITED_VENDOR[2:],
+			claim_digest,
+		],
+		"guard.attest_risk(clear, prohibited vendor)",
+		account=risk_account,
+	)
+	live.read(guard, "get_vendor_claim", [deployer], "claim: approved vendor")
+	live.read(guard, "get_vendor_claim", [PROHIBITED_VENDOR], "claim: removed vendor")
 	print()
 
 	print("ENFORCEMENT")
@@ -263,36 +350,57 @@ def main() -> int:
 		(
 			"op-small",
 			SMALL_PAYMENT,
+			deployer,
 			"recurring monthly retainer",
-			"Vendor is on the approved vendor list maintained by the risk desk.",
 			"ALLOWED",
+			0,
+		),
+		(
+			"op-signed",
+			OVERSIZED_PAYMENT,
+			deployer,
+			"recurring monthly strategic payment with two signer approvals",
+			"ALLOWED",
+			2,
 		),
 		(
 			"op-big",
 			OVERSIZED_PAYMENT,
-			"recurring monthly retainer",
-			"Vendor is on the approved vendor list. No multisig approval is attached.",
+			deployer,
+			"recurring monthly strategic payment with no approvals",
 			"VIOLATED",
+			0,
 		),
 		(
 			"op-prohibited",
 			PROHIBITED_PAYMENT,
-			"payment to an unlisted counterparty",
-			"The counterparty is not on the approved vendor list; it was added by a manager verbally.",
+			PROHIBITED_VENDOR,
+			"payment to a vendor whose current claim is not_approved",
 			"VIOLATED",
+			0,
 		),
 	]
 
 	outcomes = {}
-	for op_id, amount, memo, evidence_text, expected in scenarios:
+	for op_id, amount, recipient, memo, expected, approvals in scenarios:
 		print(f"\n  [{op_id}] {amount:,} GEN — {memo}")
 		receipt = live.write(
 			vault,
 			"request_payment",
-			["req-" + op_id, op_id, deployer, amount, memo, evidence_text],
+			["req-" + op_id, op_id, recipient, amount, memo],
 			f"vault.request_payment({op_id})",
 		)
 		live.drain_children(receipt, f"request_payment({op_id})")
+
+		signers = [deployer_account, signer_b_account]
+		for index in range(approvals):
+			live.write(
+				guard,
+				"approve_payment",
+				[f"ap-{index}-{op_id}", op_id],
+				f"guard.approve_payment({op_id}, signer {index + 1})",
+				account=signers[index],
+			)
 
 		live.write(guard, "judge_operation", ["judge-" + op_id, op_id], f"guard.judge_operation({op_id})")
 		ruling = live.read(guard, "get_ruling", [op_id], f"ruling for {op_id}")
@@ -316,7 +424,9 @@ def main() -> int:
 			pass
 		outcomes[op_id] = {
 			"amount": amount,
+			"recipient": recipient,
 			"expected": expected,
+			"approvals": approvals,
 			"ruling": ruling,
 			"execute_refused": refused,
 			"balance_moved": moved,
@@ -334,13 +444,12 @@ def main() -> int:
 		"guard.propose_amendment(50000 -> 250000)",
 	)
 	live.write(guard, "approve_amendment", ["am-a1", "amend-1"], "approve (deployer)")
-	second = create_account(SECOND_APPROVER_KEY)
 	live.write(
 		guard,
 		"approve_amendment",
 		["am-a2", "amend-1"],
 		"approve (second distinct signer)",
-		account=second,
+		account=signer_b_account,
 	)
 	live.read(guard, "get_amendment_status", ["amend-1"], "amendment status after quorum")
 
@@ -360,7 +469,6 @@ def main() -> int:
 			deployer,
 			OVERSIZED_PAYMENT,
 			"recurring monthly retainer",
-			"Vendor is on the approved vendor list. No multisig approval is attached.",
 		],
 		"vault.request_payment(op-after)",
 	)
@@ -385,6 +493,8 @@ def main() -> int:
 		pass
 	outcomes["op-after"] = {
 		"amount": OVERSIZED_PAYMENT,
+		"recipient": deployer,
+		"approvals": 0,
 		"expected": "ALLOWED (threshold raised)",
 		"ruling": ruling,
 		"execute_refused": refused,
@@ -405,7 +515,19 @@ def main() -> int:
 		"deployer_balance_wei": str(live.client.get_balance(deployer)),
 		"guard": guard,
 		"vault": vault,
-		"constructor": {"quorum": QUORUM, "timelock_seconds": TIMELOCK_SECONDS},
+		"constructor": {
+			"quorum": QUORUM,
+			"timelock_seconds": TIMELOCK_SECONDS,
+			"procurement_attestor": procurement,
+			"risk_attestor": risk,
+			"signer_a": deployer,
+			"signer_b": signer_b,
+		},
+		"evidence": {
+			"claim_valid_until": claim_until,
+			"claim_source_digest": claim_digest,
+			"policy": "role-gated on-chain claims read at ruling time; source URI/digest are audit anchors and are not fetched",
+		},
 		"transactions": live.events,
 		"reads": live.reads,
 		"outcomes": outcomes,
@@ -419,11 +541,12 @@ def main() -> int:
 
 	ok = (
 		not outcomes["op-small"]["execute_refused"]
+		and not outcomes["op-signed"]["execute_refused"]
 		and outcomes["op-big"]["execute_refused"]
 		and outcomes["op-prohibited"]["execute_refused"]
 		and not outcomes["op-after"]["execute_refused"]
 	)
-	print("\nRESULT:", "all four enforcement expectations held" if ok else "expectations NOT all held")
+	print("\nRESULT:", "all five enforcement expectations held" if ok else "expectations NOT all held")
 	return 0 if ok else 1
 
 

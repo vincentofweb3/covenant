@@ -279,3 +279,36 @@ unless the harness writes it.
 
 Any timelock in the real guard must be tested by writing `message.raw["datetime"]`
 in place. Do not write a test that calls `warp()` and then asserts on a deadline.
+## 14. Evidence-provenance API facts (verified 2026-10-23)
+
+Read from the OLD std lib at
+`~/.cache/gltest-direct/extracted/v0.3.0-rc7/py-lib-genlayer-std/11rhn…/genlayer/`:
+
+- **Web access exists but is not used by the amendment.**
+  `genlayer/gl/nondet/web.py` exports `get`, `post`, `delete`, `head`, `patch`,
+  `request`, `Response`, `render`; it is lazy and nondeterministic. Direct mode
+  can mock it with `direct_vm.mock_web(url_pattern, response)`. The guard does
+  not fetch URLs: source URI/digest are audit anchors, and live HTTP would add
+  nondeterminism, SSRF surface and source-trust questions the design does not
+  need.
+- **Cross-contract calls exist but are not used by the guard.**
+  `genlayer/gl/genvm_contracts.py` has `gl.get_contract_at(address)`,
+  `gl.deploy_contract`, `contract_interface`, `ContractProxy`, with
+  `.view(state=StorageType.…)` and `.emit(on="finalized")`.
+  `StorageType` lives in `genlayer/py/public_abi.py`:
+  `DEFAULT=0`, `LATEST_FINAL=1`, `LATEST_NON_FINAL=2`; `view()` defaults to
+  `LATEST_NON_FINAL`. Import it as
+  `from genlayer.py.public_abi import StorageType`; it is not re-exported at the
+  `genlayer` top level. Direct mode still cannot deliver cross-contract calls
+  (§12.4), so the guard's evidence registry is deliberately local.
+- **EVM helpers exist.** `gl.evm`, `EthCall`, `EthSend`, `gl.eth_contract` are in
+  the OLD std lib. They were not needed for this amendment.
+- **No raw signature verification.** A search of the std lib found no
+  `ecrecover`, `secp256k1` or signature-verification helper, and
+  `_genlayer_wasi` is not importable from host Python. On-chain sender
+  authentication (`gl.message.sender_address`) is therefore the provenance
+  primitive: the attestor's transaction is the credential, not a payload field.
+- **Attestor keys are immutable.** The constructor fixes procurement, risk and
+  two signer addresses. `_require_role` compares the chain-provided sender. There
+  is no rotation/revocation path; that is a disclosed governance assumption, not
+  an oversight.

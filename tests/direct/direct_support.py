@@ -21,7 +21,7 @@ SDK_VERSION = "v0.3.0-rc7"
 
 CONTRACT = str(REPO_ROOT / "contracts" / "covenant_guard.py")
 
-# Three clauses. The excerpt used by compliant fixtures must appear verbatim in
+# Four clauses. The excerpt used by compliant fixtures must appear verbatim in
 # this text -- that is the whole point of the design, and the tests are built so
 # that a change to the guard's verification would break them.
 COVENANT = (
@@ -41,6 +41,20 @@ EXCERPT_FABRICATED = "Payments below 50000 require no multisig approval at all"
 
 VAULT_HEX = "0x" + "ab" * 20
 
+# Evidence roles are fixed at deployment. Each address is distinct so the guard's
+# constructor check is exercised by the fixtures rather than bypassed.
+PROCUREMENT_HEX = "0x" + "21" * 20
+RISK_HEX = "0x" + "22" * 20
+SIGNER_A_HEX = "0x" + "23" * 20
+SIGNER_B_HEX = "0x" + "24" * 20
+
+# The subject under test. It is a recipient address, not free text.
+VENDOR_HEX = "0x" + "31" * 20
+VENDOR_ALT_HEX = "0x" + "32" * 20
+
+SOURCE_URI = "https://risk.example.test/vendors/" + VENDOR_HEX[2:]
+SOURCE_DIGEST = "ab" * 32
+
 QUORUM = 2
 TIMELOCK_SECONDS = 3600
 
@@ -56,6 +70,10 @@ COVENANT_V2 = (
 )
 
 T0 = "2026-01-01T00:00:00+00:00"
+
+# 334 days after T0: inside the guard's 365-day maximum claim lifetime and far
+# enough ahead that none of the state-machine tests accidentally expire it.
+CLAIM_VALID_UNTIL = 1796083200  # 2026-12-01T00:00:00Z
 
 
 def set_clock(iso_datetime: str) -> None:

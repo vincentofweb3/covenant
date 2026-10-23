@@ -7,3 +7,5 @@ Clause 3: No single payment above 50000 GEN may be released without multisig app
 Clause 4: Any counterparty not on the approved vendor list is prohibited.
 
 Clause 5: Where the evidence is insufficient or ambiguous, the operation is not permitted and a reviewer must be asked.
+
+Clause 6: A counterparty whose current risk status is flagged is prohibited until the risk desk clears it.

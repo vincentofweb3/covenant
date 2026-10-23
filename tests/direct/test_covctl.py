@@ -45,9 +45,9 @@ def test_the_shipped_example_passes_strict_linting():
     assert warnings == [], [f.render() for f in warnings]
 
 
-def test_the_shipped_example_parses_into_five_clauses():
+def test_the_shipped_example_parses_into_six_clauses():
     clauses = covctl.split_clauses(EXAMPLE.read_text(encoding="utf-8"))
-    assert [c.label for c in clauses] == [f"Clause {n}" for n in range(1, 6)]
+    assert [c.label for c in clauses] == [f"Clause {n}" for n in range(1, 7)]
     assert all(len(c.citable) <= covctl.MAX_EXCERPT_LEN for c in clauses)
 
 
@@ -140,7 +140,7 @@ def test_digest_of_the_example_is_stable():
     leave the record pointing at text that no longer exists.
     """
     assert covctl.covenant_digest(EXAMPLE.read_text(encoding="utf-8")) == (
-        "afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b"
+        "74f45d67b398a414db736e5d934e548d47c7a54251e37bcd1217f35f044c26d2"
     )
 
 
@@ -374,7 +374,7 @@ def test_cli_compile_emits_json_with_the_digest(tmp_path):
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert payload["hash"] == covctl.covenant_digest(EXAMPLE.read_text(encoding="utf-8"))
-    assert len(payload["clauses"]) == 5
+    assert len(payload["clauses"]) == 6
 
 
 def test_cli_compile_refuses_a_covenant_with_errors(tmp_path):

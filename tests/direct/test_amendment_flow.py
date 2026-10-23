@@ -12,7 +12,7 @@ refresh `gl.message_raw["datetime"]`, so it cannot be used here.
 import json
 
 import pytest
-from .direct_support import COVENANT, COVENANT_V2, TIMELOCK_SECONDS, set_clock
+from .direct_support import COVENANT, COVENANT_V2, TIMELOCK_SECONDS, VENDOR_HEX, set_clock
 
 
 def _amendment(guard, amendment_id):
@@ -264,7 +264,7 @@ def test_a_ruling_stays_bound_to_the_covenant_version_it_judged(guard, direct_vm
 	invalidates every earlier ruling.
 	"""
 	direct_vm.mock_llm(r".*", allow)
-	guard.propose_operation("ao-1", "op-old", "recurring vendor payment", "invoice 1")
+	guard.propose_operation("ao-1", "op-old", "recurring vendor payment", VENDOR_HEX)
 	guard.judge_operation("ao-2", "op-old")
 
 	version_one_hash = json.loads(guard.get_ruling("op-old"))["covenant_digest"]

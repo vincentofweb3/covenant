@@ -14,15 +14,23 @@ import json
 
 import pytest
 from .conftest import (
+	CLAIM_VALID_UNTIL,
 	COVENANT,
 	COVENANT_V2,
 	EXCERPT_FABRICATED,
+	GUARD_PATH,
 	OWNER,
+	PROCUREMENT,
 	PROPOSER,
 	QUORUM,
 	RECIPIENT,
+	SIGNER_A,
+	SIGNER_B,
+	SOURCE_DIGEST,
+	SOURCE_URI,
 	TIMELOCK,
 	T0,
+	VAULT_PATH,
 	SimError,
 	allow_fabricated,
 	allow_ok,
@@ -53,7 +61,7 @@ def _ruling(sim, guard, operation_id):
 def test_vault_binds_amount_and_recipient_into_the_judged_text(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-bind", LARGE, "vendor invoice 8891", "invoice 8891 is attached")
+	request(sim, vault, "op-bind", LARGE, "vendor invoice 8891")
 
 	held = json.loads(sim.read(guard, "get_operation", ["op-bind"]))
 	payment = _payment(sim, vault, "op-bind")
@@ -82,7 +90,7 @@ def test_funding_moves_the_balance(sim, deployed):
 def test_a_permitted_payment_executes_and_moves_funds(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-ok", SMALL, "recurring monthly retainer", "contract 12 clause 4")
+	request(sim, vault, "op-ok", SMALL, "recurring monthly retainer")
 	rule(sim, guard, "op-ok", allow_ok())
 
 	assert _ruling(sim, guard, "op-ok")["verdict"] == "ALLOWED"
@@ -98,7 +106,7 @@ def test_an_oversized_payment_is_refused_and_no_funds_move(sim, deployed):
 	"""The refusal. Clause 3 caps a single payment at 50000 without multisig."""
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-big", LARGE, "one-off large disbursement", "no approval attached")
+	request(sim, vault, "op-big", LARGE, "one-off large disbursement")
 	rule(sim, guard, "op-big", deny_ok())
 
 	assert _ruling(sim, guard, "op-big")["verdict"] == "VIOLATED"
@@ -115,7 +123,7 @@ def test_an_oversized_payment_is_refused_and_no_funds_move(sim, deployed):
 def test_an_ambiguous_operation_is_refused(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-amb", LARGE, "unclear disbursement", "sparse supporting note")
+	request(sim, vault, "op-amb", LARGE, "unclear disbursement")
 	rule(sim, guard, "op-amb", unsure_ok())
 
 	with pytest.raises(SimError):
@@ -132,7 +140,7 @@ def test_a_fabricated_clause_does_not_unlock_the_vault(sim, deployed):
 	"""
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-fake", LARGE, "one-off large disbursement", "no approval attached")
+	request(sim, vault, "op-fake", LARGE, "one-off large disbursement")
 	rule(sim, guard, "op-fake", allow_fabricated())
 
 	ruling = _ruling(sim, guard, "op-fake")
@@ -149,7 +157,7 @@ def test_a_fabricated_clause_does_not_unlock_the_vault(sim, deployed):
 def test_executing_before_any_ruling_is_refused(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-early", SMALL, "recurring retainer", "contract 12")
+	request(sim, vault, "op-early", SMALL, "recurring retainer")
 
 	with pytest.raises(SimError):
 		sim.call(vault, "execute_payment", ["exec-early", "op-early"])
@@ -181,7 +189,7 @@ def test_an_approval_obtained_outside_the_vault_cannot_be_spent_by_it(sim, deplo
 	sim.call(
 		guard,
 		"propose_operation",
-		["evil-1", "op-evil", attacker_binding, "contract 12"],
+		["evil-1", "op-evil", attacker_binding, RECIPIENT],
 		sender=PROPOSER,
 	)
 	rule(sim, guard, "op-evil", allow_ok())
@@ -202,7 +210,7 @@ def test_the_vault_executes_only_against_its_own_registered_payload(sim, deploye
 	"""
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-mine", SMALL, "recurring retainer", "contract 12")
+	request(sim, vault, "op-mine", SMALL, "recurring retainer")
 	rule(sim, guard, "op-mine", allow_ok())
 	sim.call(vault, "execute_payment", ["exec-mine", "op-mine"])
 
@@ -216,7 +224,7 @@ def test_the_vault_executes_only_against_its_own_registered_payload(sim, deploye
 def test_a_third_party_cannot_execute_someone_elses_payment_twice(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-once", SMALL, "recurring retainer", "contract 12")
+	request(sim, vault, "op-once", SMALL, "recurring retainer")
 	rule(sim, guard, "op-once", allow_ok())
 	sim.call(vault, "execute_payment", ["exec-1", "op-once"])
 	after_first = _balance(sim, vault)
@@ -231,7 +239,7 @@ def test_a_third_party_cannot_execute_someone_elses_payment_twice(sim, deployed)
 def test_exceeding_the_vault_balance_is_refused(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-drain", 5_000_000, "recurring retainer", "contract 12")
+	request(sim, vault, "op-drain", 5_000_000, "recurring retainer")
 	rule(sim, guard, "op-drain", allow_ok())
 
 	with pytest.raises(SimError):
@@ -242,7 +250,7 @@ def test_exceeding_the_vault_balance_is_refused(sim, deployed):
 def test_a_cancelled_payment_cannot_execute(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-cancel", SMALL, "recurring retainer", "contract 12")
+	request(sim, vault, "op-cancel", SMALL, "recurring retainer")
 	sim.call(vault, "cancel_payment", ["cancel-1", "op-cancel"])
 	rule(sim, guard, "op-cancel", allow_ok())
 
@@ -269,7 +277,7 @@ def test_amending_the_covenant_changes_what_the_vault_allows(sim, deployed):
 	guard, vault = deployed["guard"], deployed["vault"]
 
 	# 1. Under v1 this payment is refused.
-	request(sim, vault, "op-before", LARGE, "one-off large disbursement", "no approval attached")
+	request(sim, vault, "op-before", LARGE, "one-off large disbursement")
 	rule(sim, guard, "op-before", deny_ok())
 	with pytest.raises(SimError):
 		sim.call(vault, "execute_payment", ["exec-before", "op-before"])
@@ -284,7 +292,7 @@ def test_amending_the_covenant_changes_what_the_vault_allows(sim, deployed):
 	assert int(sim.read(guard, "get_covenant_version")) == 2
 
 	# 3. The identical payment is now permitted and executes.
-	request(sim, vault, "op-after", LARGE, "one-off large disbursement", "no approval attached")
+	request(sim, vault, "op-after", LARGE, "one-off large disbursement")
 	rule(sim, guard, "op-after", allow_ok())
 	sim.call(vault, "execute_payment", ["exec-after", "op-after"])
 
@@ -327,7 +335,7 @@ def test_protocol_finality_is_not_evidence_of_execution(sim, deployed):
 	"""
 	guard, vault = deployed["guard"], deployed["vault"]
 
-	request(sim, vault, "op-final", LARGE, "one-off large disbursement", "no approval attached")
+	request(sim, vault, "op-final", LARGE, "one-off large disbursement")
 	rule(sim, guard, "op-final", deny_ok())
 
 	# A reverted call still produces a transaction on a real chain, so a receipt
@@ -337,3 +345,99 @@ def test_protocol_finality_is_not_evidence_of_execution(sim, deployed):
 		sim.call(vault, "execute_payment", ["exec-final", "op-final"])
 	assert _balance(sim, vault) == 1_000_000
 	assert _payment(sim, vault, "op-final")["state"] == "REQUESTED"
+
+# --- evidence provenance, end to end -------------------------------------
+
+def test_two_signer_approvals_are_carried_into_the_ruling_and_the_vault(sim, deployed):
+	"""The evidence bundle is not decorative: its digest is stored on execution."""
+	guard, vault = deployed["guard"], deployed["vault"]
+	request(sim, vault, "op-signed", LARGE, "approved large payment")
+
+	sim.call(guard, "approve_payment", ["ap-a", "op-signed"], sender=SIGNER_A)
+	sim.call(guard, "approve_payment", ["ap-b", "op-signed"], sender=SIGNER_B)
+	rule(sim, guard, "op-signed", allow_ok())
+
+	ruling = _ruling(sim, guard, "op-signed")
+	assert ruling["approval_count"] == 2
+	assert ruling["approval_signers"] == sorted([SIGNER_A, SIGNER_B])
+	assert ruling["vendor_status"] == "approved"
+	assert ruling["risk_status"] == "clear"
+
+	sim.call(vault, "execute_payment", ["exec-signed", "op-signed"])
+	payment = _payment(sim, vault, "op-signed")
+	assert _balance(sim, vault) == 1_000_000 - LARGE
+	assert payment["executed_evidence_digest"] == ruling["evidence_digest"]
+	assert payment["executed_approval_count"] == 2
+
+
+def test_a_missing_attestation_blocks_judgment_rather_than_guessing(sim):
+	"""Fail closed: no claim, no ruling, no payment."""
+	guard = sim.deploy(
+		GUARD_PATH, [COVENANT, QUORUM, TIMELOCK, PROCUREMENT, "0x" + "66" * 20, SIGNER_A, SIGNER_B]
+	)
+	vault = sim.deploy(VAULT_PATH, [guard, OWNER])
+	sim.call(guard, "register_vault", ["reg-noclaim", vault])
+	sim.call(vault, "deposit", ["dep-noclaim", 1_000_000])
+	request(sim, vault, "op-noclaim", SMALL, "recurring retainer")
+
+	sim.install_mocks({".*": allow_ok()})
+	with pytest.raises(SimError):
+		sim.call(guard, "judge_operation", ["judge-noclaim", "op-noclaim"])
+
+	assert sim.read(guard, "get_operation_status", ["op-noclaim"]) == "PROPOSED"
+	assert _balance(sim, vault) == 1_000_000
+
+
+def test_a_requester_cannot_write_a_vendor_claim(sim, deployed):
+	"""The sender is the credential. A requester cannot attest for itself."""
+	guard = deployed["guard"]
+	with pytest.raises(SimError):
+		sim.call(
+			guard,
+			"attest_vendor",
+			[
+				"forged",
+				RECIPIENT,
+				"approved",
+				CLAIM_VALID_UNTIL,
+				SOURCE_URI,
+				SOURCE_DIGEST,
+			],
+			sender=PROPOSER,
+		)
+
+
+def test_an_expired_claim_blocks_judgment(sim, deployed):
+	guard = deployed["guard"]
+	sim.set_time("2026-12-02T00:00:00+00:00")
+	request(sim, deployed["vault"], "op-expired", SMALL, "recurring retainer")
+
+	sim.install_mocks({".*": allow_ok()})
+	with pytest.raises(SimError):
+		sim.call(guard, "judge_operation", ["judge-expired", "op-expired"])
+
+	assert sim.read(guard, "get_operation_status", ["op-expired"]) == "PROPOSED"
+
+
+def test_a_not_approved_vendor_claim_is_carried_into_the_ruling(sim, deployed):
+	guard, vault = deployed["guard"], deployed["vault"]
+	sim.call(
+		guard,
+		"attest_vendor",
+		[
+			"vendor-off",
+			RECIPIENT,
+			"not_approved",
+			CLAIM_VALID_UNTIL,
+			SOURCE_URI,
+			SOURCE_DIGEST,
+		],
+		sender=PROCUREMENT,
+	)
+	request(sim, vault, "op-off", SMALL, "payment to a removed vendor")
+	rule(sim, guard, "op-off", deny_ok())
+
+	ruling = _ruling(sim, guard, "op-off")
+	assert ruling["verdict"] == "VIOLATED"
+	assert ruling["vendor_status"] == "not_approved"
+	assert ruling["evidence_verified"] is True

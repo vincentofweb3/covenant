@@ -7,7 +7,8 @@ movement must carry a finalized ``ALLOWED`` ruling from a registered
 ``CovenantGuard``, and this contract re-reads the guard over a cross-contract
 call to check. It does not trust the caller, and it does not trust a bare
 ``is_downstream_actionable`` answer either -- it re-reads the ruling and
-independently refuses any ruling whose excerpt was not verified.
+independently refuses any ruling whose excerpt was not verified or whose
+evidence bundle was not acquired by the guard itself.
 
 **Why this contract binds the amount into the judged text.**
 
@@ -23,6 +24,15 @@ exactly what is submitted to the guard for judgment. On execution the vault
 reads the operation back from the guard and refuses unless the summary it is
 about to act on is byte-identical to the summary it submitted. Authority
 obtained for one payload cannot be spent on another.
+
+**Why the vault does not forward evidence text.** The first version accepted a
+free-text evidence string and passed it to the guard. That made the excerpt
+check decorative: the requester could assert "vendor approved" and the model
+would reason about the assertion. The vault now supplies only the payment and
+its recipient. The guard reads the current vendor and risk attestations for that
+recipient from its own role-gated registry, counts the configured signers'
+approvals of the exact binding, and binds the resulting evidence digest into the
+ruling. The vault re-checks that binding before it moves anything.
 
 Scope, stated plainly: balances here are **internal accounting entries**. This is
 not escrow, no native token is transferred, and nothing in this file should be
@@ -46,7 +56,6 @@ PAY_CANCELLED = "CANCELLED"
 VERDICT_ALLOWED = "ALLOWED"
 
 MAX_MEMO_LEN = 800
-MAX_EVIDENCE_LEN = 4000
 MAX_RECIPIENTS = 64
 
 MAX_AMOUNT_DIGITS = 78
@@ -210,13 +219,16 @@ class TreasuryVault(gl.Contract):
 
 	@gl.public.write
 	def request_payment(
-		self, action_id: str, operation_id: str, recipient: str, amount: u256, memo: str, evidence: str
+		self, action_id: str, operation_id: str, recipient: str, amount: u256, memo: str
 	) -> str:
 		"""Register a payment locally and ask the guard to rule on it.
 
 		The summary submitted to the guard is the canonical binding of amount,
 		recipient and memo -- never a human-written sentence standing in for
-		them. Permissionless: anyone may propose, and the covenant decides.
+		them. No evidence text is accepted: the guard acquires the vendor and
+		risk facts for ``recipient`` from its own attestation registry, and counts
+		the configured signers' approvals of this exact binding. Permissionless:
+		anyone may propose, and the covenant decides.
 		"""
 		op_id = str(operation_id).strip()
 		if op_id == "":
@@ -228,11 +240,6 @@ class TreasuryVault(gl.Contract):
 			_fail("memo must not be empty")
 		if len(note) > MAX_MEMO_LEN:
 			_fail("memo exceeds the maximum length")
-		proof = str(evidence).strip()
-		if proof == "":
-			_fail("evidence must not be empty")
-		if len(proof) > MAX_EVIDENCE_LEN:
-			_fail("evidence exceeds the maximum length")
 
 		digest = self._action_digest(
 			"request_payment",
@@ -241,7 +248,6 @@ class TreasuryVault(gl.Contract):
 				"recipient": to,
 				"amount": value,
 				"memo": note,
-				"evidence": proof,
 			},
 		)
 		if self._action_replay(action_id, digest):
@@ -261,16 +267,17 @@ class TreasuryVault(gl.Contract):
 			"binding_digest": _digest("binding", [binding]),
 			"requested_at": 0,
 			"executed_ruling_digest": "",
+			"executed_evidence_digest": "",
 		}
 		encoded = _canonical(record)
 		self.payments[op_id] = encoded
 		self.payment_order.append(op_id)
 
-		# Submit exactly the binding to the guard. Emitted with finalized
-		# semantics; `on` defaults to 'finalized', which the std lib recommends
-		# over 'accepted'.
+		# Submit exactly the binding and its subject to the guard. Emitted with
+		# finalized semantics; `on` defaults to 'finalized', which the std lib
+		# recommends over 'accepted'.
 		gl.get_contract_at(self.guard).emit(on="finalized").propose_operation(
-			action_id, op_id, binding, proof
+			action_id, op_id, binding, to
 		)
 
 		self._record_action(action_id, digest, encoded)
@@ -280,19 +287,21 @@ class TreasuryVault(gl.Contract):
 	def execute_payment(self, action_id: str, operation_id: str) -> str:
 		"""Move funds, but only against a verified ruling from the guard.
 
-		The refusal lives here. Three independent checks, in order of cost:
+		The refusal lives here. Four independent checks, in order of cost:
 
-		1. the operation the guard holds must carry *our* binding, byte for byte
-		   -- otherwise an approval obtained for a benign payload could be
-		   spent on a large one;
+		1. the operation the guard holds must carry *our* binding and *our*
+		   recipient, byte for byte -- otherwise an approval obtained for a
+		   benign payload could be spent on a large one;
 		2. the guard must report the operation as actionable, which it only does
 		   for a finalized ALLOWED ruling;
 		3. the ruling itself is re-read and must be ALLOWED with a verified
-		   excerpt.
+		   excerpt;
+		4. the ruling must carry the same contract-acquired evidence digest the
+		   guard stored on the operation, for the same subject.
 
-		Check 3 is deliberately redundant with the guard's own guarantee. If the
-		guard were ever compromised, a ruling whose clause was never verified
-		still cannot move funds here.
+		Checks 3 and 4 are deliberately redundant with the guard's own guarantees.
+		If the guard were ever compromised, a ruling whose clause was never
+		verified, or whose facts were never acquired, still cannot move funds here.
 		"""
 		op_id = str(operation_id).strip()
 		digest = self._action_digest("execute_payment", {"operation_id": op_id})
@@ -327,6 +336,13 @@ class TreasuryVault(gl.Contract):
 			payment.get("binding_digest", "")
 		):
 			_fail("binding digest mismatch")
+		if _address_text(held.get("subject", "")) != to:
+			_fail("the judged evidence subject is not the payment recipient")
+		held_evidence_digest = str(held.get("evidence_digest", ""))
+		if held_evidence_digest == "":
+			_fail("the guard holds no acquired evidence for this operation")
+		if str(held.get("input_digest", "")) == "":
+			_fail("the guard holds no input digest for this operation")
 
 		# -- 2. the guard must report it actionable ----------------------------
 		actionable = gl.get_contract_at(self.guard).view().is_downstream_actionable(op_id)
@@ -350,6 +366,14 @@ class TreasuryVault(gl.Contract):
 			_fail("ruling is not an approval")
 		if ruling.get("excerpt_verified") is not True:
 			_fail("ruling cites no verified covenant clause")
+		if ruling.get("evidence_verified") is not True:
+			_fail("ruling cites no contract-acquired evidence")
+		if _address_text(ruling.get("evidence_subject", "")) != to:
+			_fail("ruling evidence is for a different subject")
+		if str(ruling.get("evidence_digest", "")) != held_evidence_digest:
+			_fail("ruling evidence digest does not match the stored evidence")
+		if str(ruling.get("input_digest", "")) != str(held.get("input_digest", "")):
+			_fail("ruling input digest does not match the stored operation")
 
 		if value > int(self.balance):
 			_fail("insufficient vault balance")
@@ -359,6 +383,10 @@ class TreasuryVault(gl.Contract):
 		payment["state"] = PAY_EXECUTED
 		payment["executed_ruling_digest"] = str(ruling.get("ruling_digest", ""))
 		payment["executed_covenant_digest"] = str(ruling.get("covenant_digest", ""))
+		payment["executed_evidence_digest"] = held_evidence_digest
+		payment["executed_vendor_status"] = str(ruling.get("vendor_status", ""))
+		payment["executed_risk_status"] = str(ruling.get("risk_status", ""))
+		payment["executed_approval_count"] = int(ruling.get("approval_count", 0))
 		payment["executed_excerpt"] = str(ruling.get("excerpt", ""))
 		encoded = _canonical(payment)
 		self.payments[op_id] = encoded

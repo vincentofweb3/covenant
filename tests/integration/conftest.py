@@ -37,6 +37,17 @@ OWNER = "0x" + "11" * 20
 PROPOSER = "0x" + "33" * 20
 RECIPIENT = "0x" + "44" * 20
 
+# Fixed evidence roles, distinct from the owner/proposer/recipient above.
+PROCUREMENT = "0x" + "55" * 20
+RISK = "0x" + "66" * 20
+SIGNER_A = "0x" + "77" * 20
+SIGNER_B = "0x" + "88" * 20
+
+T0 = "2026-01-01T00:00:00+00:00"
+CLAIM_VALID_UNTIL = 1796083200  # 2026-12-01T00:00:00Z
+SOURCE_URI = "https://risk.example.test/vendors/" + RECIPIENT[2:]
+SOURCE_DIGEST = "ab" * 32
+
 COVENANT = (
 	"Clause 1: The approved vendor list is maintained by the risk desk.\n"
 	"Clause 2: Recurring monthly payments to an approved vendor are permitted.\n"
@@ -58,9 +69,6 @@ EXCERPT_FABRICATED = "Payments below 50000 require no multisig approval at all"
 
 QUORUM = 2
 TIMELOCK = 3600
-
-T0 = "2026-01-01T00:00:00+00:00"
-
 
 class SimError(RuntimeError):
 	"""A JSON-RPC level failure returned by glsim."""
@@ -405,10 +413,49 @@ def allow_fabricated() -> str:
 	)
 
 
+def write_standard_claims(sim, guard, action_prefix="fixture"):
+	"""Write the standard approved/clear claims for the test recipient."""
+	sim.call(
+		guard,
+		"attest_vendor",
+		[
+			action_prefix + "-vendor",
+			RECIPIENT,
+			"approved",
+			CLAIM_VALID_UNTIL,
+			SOURCE_URI,
+			SOURCE_DIGEST,
+		],
+		sender=PROCUREMENT,
+	)
+	sim.call(
+		guard,
+		"attest_risk",
+		[
+			action_prefix + "-risk",
+			RECIPIENT,
+			"clear",
+			CLAIM_VALID_UNTIL,
+			SOURCE_URI,
+			SOURCE_DIGEST,
+		],
+		sender=RISK,
+	)
+
+
+def deploy_guard(sim, covenant: str = COVENANT, prefix: str = "deploy") -> str:
+	guard = sim.deploy(
+		GUARD_PATH,
+		[covenant, QUORUM, TIMELOCK, PROCUREMENT, RISK, SIGNER_A, SIGNER_B],
+	)
+	write_standard_claims(sim, guard, prefix)
+	return guard
+
+
 @pytest.fixture
 def deployed(sim):
-	"""Guard + vault, registered, funded. The starting point for every test."""
-	guard = sim.deploy(GUARD_PATH, [COVENANT, QUORUM, TIMELOCK])
+	"""Guard + vault, registered, funded, with standard evidence on record."""
+	guard = deploy_guard(sim, prefix="fixture-a")
 	vault = sim.deploy(VAULT_PATH, [guard, OWNER])
 
 	sim.call(guard, "register_vault", ["reg-1", vault])
@@ -416,12 +463,12 @@ def deployed(sim):
 	return {"guard": guard, "vault": vault}
 
 
-def request(sim, vault, operation_id, amount, memo, evidence, sender=PROPOSER):
+def request(sim, vault, operation_id, amount, memo, sender=PROPOSER):
 	"""Ask the vault for a payment; it forwards the bound payload to the guard."""
 	sim.call(
 		vault,
 		"request_payment",
-		["req-" + operation_id, operation_id, RECIPIENT, amount, memo, evidence],
+		["req-" + operation_id, operation_id, RECIPIENT, amount, memo],
 		sender=sender,
 	)
 
@@ -465,7 +512,7 @@ def sim_multi():
 
 @pytest.fixture
 def deployed_multi(sim_multi):
-	guard = sim_multi.deploy(GUARD_PATH, [COVENANT, QUORUM, TIMELOCK])
+	guard = deploy_guard(sim_multi, prefix="fixture-m")
 	vault = sim_multi.deploy(VAULT_PATH, [guard, OWNER])
 	sim_multi.call(guard, "register_vault", ["reg-m", vault])
 	sim_multi.call(vault, "deposit", ["dep-m", 1_000_000])

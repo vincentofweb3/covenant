@@ -1,5 +1,9 @@
 # Studionet run — 2026-10-20
 
+> **Pre-amendment run.** This predates the evidence-provenance amendment. It
+> contains no vendor/risk attestations and no signer approvals, and must not be
+> cited for the provenance claim. The amended demo has not been redeployed yet.
+
 First live deployment and demonstration of Covenant. Every transaction below
 reached `FINALIZED` with consensus result `MAJORITY_AGREE`.
 

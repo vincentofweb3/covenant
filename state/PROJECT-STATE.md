@@ -2,35 +2,39 @@
 
 ## Current status
 
-**Phases 0-5 complete. 164 tests green. Deployed and demonstrated live on
-studionet — all four enforcement expectations held.**
+**Evidence-provenance amendment implemented. 190 direct + 29 integration + 20
+probe tests green. The amended contracts are not deployed yet.**
 
-Both contracts are written, validated against the pinned GenVM runtime, and
-independently reviewed across three rounds. The central claim — *a value-moving
-method consults a policy oracle and refuses when the oracle says no* — is
-demonstrated end to end on the GenLayer simulator, including genuine multi-
-validator disagreement.
+The original submission was rejected because the treasury authorization could
+depend on external facts while the contract evaluated only evidence text supplied
+by the payment requester. The amendment removes that path: requester supplies the
+instruction and subject only; procurement/risk attestors fixed at deployment write
+structured on-chain claims; signers approve the exact operation binding; the guard
+reads the current claims at ruling time and binds their digest into the ruling;
+the vault re-checks the evidence subject/digest before moving funds.
 
-The live run is the only thing left, and it is the only thing that resolves the
-largest unproven assumption in the design.
+Both contracts pass `genvm-lint` and `preflight.py`. Direct and simulator suites
+are green. The live deployment below is the **pre-amendment** run and does not
+contain attestation or approval transactions.
 
 ## What exists
 
 | File | Lines | Purpose |
 |---|---|---|
-| `contracts/covenant_guard.py` | 893 | the primitive: covenant store, operation lifecycle, judge seam, amendment flow. 21 methods |
-| `contracts/treasury_vault.py` | 388 | worked example; proves the guard is load-bearing. 11 methods |
-| `tests/direct/test_covenant_guard.py` | 447 | judge seam, adversarial cases, state machine |
-| `tests/direct/test_adversarial.py` | 260 | boundaries around the seam: injection, case, capture, laundering |
+| `contracts/covenant_guard.py` | 1436 | the primitive: covenant store, operation lifecycle, judge seam, evidence registry, amendment flow. 28 methods |
+| `contracts/treasury_vault.py` | 416 | worked example; proves the guard is load-bearing. 11 methods |
+| `tests/direct/test_covenant_guard.py` | 475 | judge seam, adversarial cases, state machine |
+| `tests/direct/test_adversarial.py` | 232 | boundaries around the seam: injection, case, capture, laundering |
 | `tests/direct/test_amendment_flow.py` | 295 | quorum, timelock, staleness, version history |
+| `tests/direct/test_evidence_provenance.py` | 284 | role-gated claims, expiry, approvals, evidence binding |
 | `tests/direct/test_covctl.py` | 240 | the linter, and that its digest equals the contract's |
-| `tests/direct/conftest.py` | 157 | fixtures, `set_clock`, SDK pin |
-| `tests/integration/test_lifecycle.py` | 338 | **the refusal proof** |
-| `tests/integration/test_consensus.py` | 190 | real validator voting, via a documented harness shim |
-| `tests/integration/conftest.py` | 420 | glsim harness, typed calldata, simulated clock, validator capture |
+| `tests/direct/conftest.py` | 143 | fixtures, attestations, `set_clock`, SDK pin |
+| `tests/integration/test_lifecycle.py` | 443 | **the refusal proof** + evidence provenance |
+| `tests/integration/test_consensus.py` | 236 | real validator voting, via a documented harness shim |
+| `tests/integration/conftest.py` | 569 | glsim harness, typed calldata, simulated clock, validator capture |
 | `scripts/covctl.py` | 420 | covenant compiler + policy linter + digest + citation checker |
 | `scripts/preflight.py` | 230 | 265 architectural invariants + secret scan |
-| `scripts/live_demo.py` | 380 | live deploy + 7-step demonstration, retries transient network errors, evidence to JSON |
+| `scripts/live_demo.py` | 560 | live deploy + attestations/approvals + demonstration, retries transient network errors, evidence to JSON |
 | `docs/THREAT_MODEL.md` | — | threats → controls, explicit non-goals, what is not established |
 | `docs/CONSENSUS.md` | — | the leader/validator protocol, precisely |
 | `docs/ARCHITECTURE.md` | 202 | state, machines, message sequence, trust boundaries |
@@ -38,28 +42,28 @@ largest unproven assumption in the design.
 | `state/REVIEW_ROUND1.md` | 198 | guard audit — 3 refuted findings kept |
 | `state/REVIEW_ROUND2.md` | 155 | vault audit — 2 refuted findings kept |
 | `state/REVIEW_ROUND3.md` | 178 | consensus audit — includes a disclosure of four wrong turns |
-| `state/MEMORY.md` | 273 | verified GenLayer API facts |
+| `state/MEMORY.md` | 314 | verified GenLayer API facts, including web/cross-contract/signature findings |
 
 ## Validation status
 
 ```console
 $ python3 -m compileall -q contracts scripts tests
 $ python3 scripts/preflight.py
-✓ Preflight passed (265 checks, 42 files scanned)
+✓ Preflight passed (329 checks, 56 files scanned)
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/covenant_guard.py
 ✓ Validation passed
-  Methods: 21 (13 view, 8 write)
+  Methods: 28 (17 view, 11 write)
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/treasury_vault.py
 ✓ Validation passed
   Methods: 11 (7 view, 4 write)
 
 $ python3 -m pytest tests/direct
-120 passed
+190 passed
 
 $ python3 -m pytest tests/integration
-24 passed
+29 passed
 
 $ python3 -m pytest probe/
 20 passed
@@ -129,7 +133,36 @@ Carried forward from `state/REVIEW_ROUND3.md` §5 and `docs/THREAT_MODEL.md` §6
 5. **No gas, cost, size or fuzzing analysis.**
 6. **Vault balances are internal accounting.** Not escrow, not settlement.
 
-## LIVE — deployed and demonstrated on studionet (2026-10-20)
+## Evidence-provenance amendment (2026-10-23)
+
+**Rejection.** "The treasury authorization can depend on external facts, but the
+contract evaluates only evidence text supplied by the payment requester." The
+excerpt check proved a policy clause existed; it did not verify vendor approval
+or risk status.
+
+**Fix.** A guard-local attestation registry:
+
+- constructor fixes `procurement_attestor`, `risk_attestor`, `signer_a`,
+  `signer_b` (four distinct addresses);
+- `attest_vendor` / `attest_risk` are role-gated by
+  `gl.message.sender_address`; claims are subject-keyed, status-typed, have a
+  bounded validity window, `https://` source URI, 64-hex source digest, and a
+  recomputable claim digest;
+- `propose_operation(action_id, operation_id, summary, subject)` has no evidence
+  argument;
+- `approve_payment(action_id, operation_id)` records a configured signer's
+  approval of the exact `binding_digest`;
+- `judge_operation` acquires the current vendor/risk claims and distinct matching
+  approvals, computes `evidence_digest`, and records it on the ruling;
+- the vault re-checks `evidence_verified`, `evidence_subject`, `evidence_digest`
+  and the stored `input_digest` before execution.
+
+**Honest limit.** The contract proves which role wrote a claim and when, not that
+the claim is true. Attestor keys are immutable, with no rotation/revocation.
+Evidence is a ruling-time snapshot; expiry is not re-checked at execution. See
+`docs/THREAT_MODEL.md` §2.6–2.8 and §6.
+
+## LIVE — pre-amendment run on studionet (2026-10-20)
 
 **The blocker was based on a wrong assumption: studionet is gasless.**
 `baseFeePerGas` is 0, `eth_gasPrice` is 0, and every block reports `gasUsed` 0.
@@ -157,7 +190,10 @@ amended by quorum + timelock, v1 → v2, and the identical payment flipped from
 refused to executed. Balances reconcile exactly: 1,000,000 − 900 − 120,000 = 879,100.
 
 Evidence: `evidence/studionet-2026-10-20.md` and `evidence/live-run.json`.
-Runner: `scripts/live_demo.py`.
+**This is the pre-amendment run.** It contains no attestations or approvals and
+must not be cited for the provenance claim. The amended demo (`scripts/live_demo.py`)
+now deploys with evidence roles, attests vendor/risk claims, approves the large
+payment with two signers, and is ready to re-run after commit.
 
 ### Two defects the live run exposed
 
@@ -192,7 +228,16 @@ pass in one run, where before the combined run failed.
 
 ## Next checkpoint
 
-The live run is complete and resolves the primary open question in
-`docs/THREAT_MODEL.md` §6.1. The remaining gap is the fabricated-excerpt defence
-under a live model, which cannot be forced and is covered only by the injected
-model in `tests/`.
+The evidence-provenance amendment is implemented and locally green. Remaining:
+
+1. commit the amendment (user approval required);
+2. regenerate the covenant fixture and covctl vendor/fixture from that commit;
+3. run the full suite, preflight, and lint again;
+4. redeploy to studionet with the amended demo (attestations + approvals);
+5. record new evidence and replace the pre-amendment live table;
+6. resubmit, citing the rejection and the specific control that answers it.
+
+The pre-amendment live run resolved the original deployment question but is **not**
+evidence for the provenance claim. The fabricated-excerpt defence remains proven
+only with an injected model; the attestor-honesty assumption is disclosed in
+`docs/THREAT_MODEL.md` §2.6.

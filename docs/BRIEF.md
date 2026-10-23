@@ -2,13 +2,16 @@
 
 ## Decision
 
-**Go — with the payload binding, which was not in the original design.**
+**Go — with the payload binding and the evidence-provenance amendment, neither
+of which was in the original design.**
 
 The initial plan was a guard that asks a model whether an operation complies
 with a written covenant. Phase 2 found that the obvious version of the vault is
 exploitable, because the amount never reaches the model. The binding decision
-(§ "The decision the whole design rests on", `PLAN.md` §4) makes the design
-work and was worth the rework.
+makes the design work. A review then found the second gap: the requester supplied
+the external facts as prose, and a real citation proved only that the policy
+clause existed. The amendment replaces requester evidence with role-gated
+on-chain attestations and binds their digest into the ruling.
 
 ## User and problem
 
@@ -37,9 +40,12 @@ balance does not move.
 |---|---|---|
 | Covenant owner | propose an amendment | activate one alone |
 | Amendment approver | approve once, if distinct | approve twice, or force activation |
-| Payment proposer | request anything | cause an `ALLOWED` verdict |
+| Payment proposer | request anything | supply evidence, or cause an `ALLOWED` verdict |
+| Procurement attestor | write vendor claims for its role | write risk claims or approvals |
+| Risk attestor | write risk claims for its role | write vendor claims or approvals |
+| Payment signer | approve one exact operation binding | approve twice, or spend approval elsewhere |
 | Vault | execute against a verified ruling | rule for itself — enforced by preflight |
-| Model | cite a clause | invent one |
+| Model | cite a clause | invent one, or ignore the contract-acquired facts without consequence in the audit trail |
 
 ## Success observation
 
@@ -60,17 +66,34 @@ proposer is honest.
 So the vault submits a canonical binding as the summary, and refuses execution
 unless the guard holds that exact payload.
 
+## The second decision: facts are acquired, not asserted
+
+`propose_operation` takes the instruction and the subject, never evidence text.
+Procurement and risk attestors fixed at deployment write structured claims for the
+subject; two signers approve the exact operation binding. The guard reads the
+current claims at ruling time, checks role, status, expiry and claim digest,
+counts distinct matching approvals, and computes `evidence_digest`. The model sees
+a `VERIFIED_EVIDENCE` block the caller could not write. The vault re-checks that
+the ruling's evidence subject and digest match the operation before it moves
+funds. A missing or expired claim fails closed at judgment time.
+
+The contract proves provenance, not truth: the attestor keys are trusted and
+immutable. That limit is stated in `docs/THREAT_MODEL.md` §2.6.
+
 ## Smallest live end-to-end slice
 
-1. Deploy the guard with a four-clause covenant, quorum 2, timelock 1 hour.
-2. Deploy the vault, register it, deposit.
-3. Request a 120,000 payment → `VIOLATED` (over Clause 3) → `execute_payment`
-   reverts, balance unchanged.
-4. Request a 900 payment → `ALLOWED` → executes, balance drops by 900.
-5. Ask the model to allow the 120,000 by citing a clause that does not exist →
-   `AMBIGUOUS` / `UNVERIFIED_EXCERPT` → still refused.
-6. Amend the covenant to raise the threshold to 250,000 with two approvers and
-   an elapsed timelock. Re-run step 3's identical payment → now `ALLOWED`.
+1. Deploy the guard with the six-clause demo covenant, quorum 2, timelock 1 hour,
+   and four distinct evidence roles.
+2. Attest the recipient as `approved`/`clear`; attest a removed vendor as
+   `not_approved`; deploy the vault, register it, deposit.
+3. Request a 120,000 payment with no approvals → `VIOLATED` → refused.
+4. Approve the same 120,000 binding with two distinct signers → `ALLOWED` →
+   executes.
+5. Request a 900 payment to the approved vendor → `ALLOWED` → executes.
+6. Request a payment to the `not_approved` vendor → `VIOLATED` → refused.
+7. Amend the covenant to raise the threshold to 250,000 with two approvers and
+   an elapsed timelock. Re-run the 120,000 payment without approvals → now
+   `ALLOWED`.
 
 Step 6 is the one that matters. It proves enforcement tracks the policy actually
 in force, and that the guard cannot be edited by whoever it is blocking.
@@ -98,5 +121,7 @@ demonstrable on the simulator; and a single live ruling can be obtained. Stop an
 re-scope if the live network cannot produce a reliable three-way agreement — at
 that point the honest deliverable is the primitive plus its tests, not a demo.
 
-**Gate status: passed for construction, unpassed for live deployment.** Phases 0-3
-are complete; the live run has not been attempted.
+**Gate status:** construction and the pre-amendment live run passed. The amended
+contracts pass lint/preflight and the direct + simulator suites, but have **not**
+been redeployed yet. The amended demo is ready to run; do not cite the old live
+evidence for the provenance claim.

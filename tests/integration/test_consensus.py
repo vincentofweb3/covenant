@@ -60,6 +60,7 @@ import pytest
 from .conftest import (
 	COVENANT,
 	OWNER,
+	RECIPIENT,
 	allow_ok,
 	deny_ok,
 	DivergentModel,
@@ -110,7 +111,7 @@ def test_sim_call_does_not_run_consensus(sim_multi, deployed_multi):
 	try:
 		guard = deployed_multi["guard"]
 		sim_multi.install_mocks({".*": allow_ok()})
-		receipt = sim_multi.call(guard, "propose_operation", ["p1", "op-sc", BINDING, "ev"])
+		receipt = sim_multi.call(guard, "propose_operation", ["p1", "op-sc", BINDING, RECIPIENT])
 	finally:
 		server_module.run_consensus = original
 
@@ -124,7 +125,7 @@ def test_sim_call_does_not_run_consensus(sim_multi, deployed_multi):
 def test_three_validators_agreeing_finalizes_the_ruling(sim_multi, deployed_multi):
 	"""The happy path through real consensus, with three votes cast."""
 	guard = deployed_multi["guard"]
-	sim_multi.call(guard, "propose_operation", ["p1", "op-agree", BINDING, "ev"])
+	sim_multi.call(guard, "propose_operation", ["p1", "op-agree", BINDING, RECIPIENT])
 	sim_multi.install_mocks({".*": allow_ok()})
 
 	outcome = consensus_write(sim_multi, guard, "judge_operation", ["j1", "op-agree"])
@@ -144,7 +145,7 @@ def test_a_validator_split_does_not_finalize(sim_multi, deployed_multi):
 	the transaction must not finalize.
 	"""
 	guard = deployed_multi["guard"]
-	sim_multi.call(guard, "propose_operation", ["p1", "op-split", BINDING, "ev"])
+	sim_multi.call(guard, "propose_operation", ["p1", "op-split", BINDING, RECIPIENT])
 
 	sim_multi.install_mocks({}, strict=False)
 	model = DivergentModel(allow_ok(), deny_ok())
@@ -162,7 +163,7 @@ def test_a_validator_split_does_not_finalize(sim_multi, deployed_multi):
 def test_a_partial_split_still_fails_without_a_majority(sim_multi, deployed_multi):
 	"""Two of three disagreeing is not a majority, so it must not finalize."""
 	guard = deployed_multi["guard"]
-	sim_multi.call(guard, "propose_operation", ["p1", "op-partial", BINDING, "ev"])
+	sim_multi.call(guard, "propose_operation", ["p1", "op-partial", BINDING, RECIPIENT])
 
 	sim_multi.install_mocks({}, strict=False)
 	# Leader says ALLOWED (call 0). The first validator also says ALLOWED
@@ -191,7 +192,7 @@ def test_failed_consensus_leaves_state_in_the_simulator(sim_multi, deployed_mult
 	by someone reading a green test as proof of on-chain atomicity.
 	"""
 	guard = deployed_multi["guard"]
-	sim_multi.call(guard, "propose_operation", ["p1", "op-roll", BINDING, "ev"])
+	sim_multi.call(guard, "propose_operation", ["p1", "op-roll", BINDING, RECIPIENT])
 
 	sim_multi.install_mocks({}, strict=False)
 	install_validator_capture(sim_multi, DivergentModel(allow_ok(), deny_ok()))
@@ -222,7 +223,7 @@ def test_the_validator_rejects_a_fabricated_excerpt_independently(sim_multi, dep
 		)
 	)
 	guard = deployed_multi["guard"]
-	sim_multi.call(guard, "propose_operation", ["p1", "op-fab", BINDING, "ev"])
+	sim_multi.call(guard, "propose_operation", ["p1", "op-fab", BINDING, RECIPIENT])
 
 	sim_multi.install_mocks({}, strict=False)
 	install_validator_capture(sim_multi, DivergentModel(fabricated, fabricated))

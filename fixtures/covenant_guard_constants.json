@@ -153,10 +153,12 @@
     }
   ],
   "provenance": {
-    "commit": "0034b5e40a886664ee6df84c585e23a0db84cb12",
+    "commit": "99cbfd91e7912ca85a83281b0fde80bdb0f6784c",
+    "dirty": true,
     "generated_by": "scripts/gen_fixture.py",
+    "note": "working tree carries the evidence-provenance amendment; regenerate this fixture from the amendment commit before submission",
     "path": "contracts/covenant_guard.py",
     "repository": "https://github.com/vincentofweb3/covenant",
-    "sha256": "e55b9c3f082c17a300506f1645d8a349af5c11be70624e10dbf267d12bee2b12"
+    "sha256": "1f93c70522abe1252d2f9ab835c1bbf4460549a67c411c1433da1c083e8e9e1b"
   }
 }

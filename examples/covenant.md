@@ -1,8 +1,8 @@
 Clause 1: The approved vendor list is maintained by the risk desk.
 
-Clause 2: Recurring monthly payments to an approved vendor are permitted.
+Clause 2: Recurring monthly payments to an approved vendor are permitted up to 50000 GEN.
 
-Clause 3: No single payment above 50000 GEN may be released without multisig approval from two distinct signers.
+Clause 3: A payment above 50000 GEN requires approval from two distinct signers and is permitted once both have approved.
 
 Clause 4: Any counterparty not on the approved vendor list is prohibited.
 

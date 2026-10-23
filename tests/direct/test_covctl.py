@@ -140,7 +140,7 @@ def test_digest_of_the_example_is_stable():
     leave the record pointing at text that no longer exists.
     """
     assert covctl.covenant_digest(EXAMPLE.read_text(encoding="utf-8")) == (
-        "74f45d67b398a414db736e5d934e548d47c7a54251e37bcd1217f35f044c26d2"
+        "c1df2e75fed96423b6a8ac4cd08de041b7b23d2a7c5d5ca7e214eefc3f8de608"
     )
 
 

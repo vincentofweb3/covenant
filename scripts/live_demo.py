@@ -272,6 +272,7 @@ def main() -> int:
 	print()
 
 	print("SETUP")
+	live.read(guard, "get_covenant_hash", [], "covenant hash at deploy")
 	live.read(guard, "get_governance", [], "guard governance")
 	live.read(guard, "get_attestors", [], "evidence attestors")
 	live.write(guard, "register_vault", ["setup-register", vault], "guard.register_vault")
@@ -435,7 +436,7 @@ def main() -> int:
 		print(f"    expected {expected}; ruling={str(ruling)[:60]}; refused={refused}; moved={moved:+,}")
 
 	print("\nAMENDMENT")
-	amended = covenant.replace("No single payment above 50000 GEN", "No single payment above 250000 GEN")
+	amended = covenant.replace("50000 GEN", "250000 GEN")
 	assert amended != covenant, "amendment text did not change the covenant"
 	live.write(
 		guard,

@@ -1,6 +1,6 @@
 Clause 1: The approved vendor list is maintained by the risk desk.
 
-Clause 2: Recurring monthly payments to an approved vendor are permitted up to 50000 GEN.
+Clause 2: Payments of 50000 GEN or less to an approved vendor are permitted.
 
 Clause 3: A payment above 50000 GEN requires approval from two distinct signers and is permitted once both have approved.
 

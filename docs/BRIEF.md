@@ -87,7 +87,7 @@ immutable. That limit is stated in `docs/THREAT_MODEL.md` §2.6.
 2. Attest the recipient as `approved`/`clear`; attest a removed vendor as
    `not_approved`; deploy the vault, register it, deposit.
 3. Request a 120,000 payment with no approvals → `VIOLATED` → refused.
-4. Request a 900 recurring payment with two recorded signer approvals →
+4. Request a 900 payment with two recorded signer approvals →
    `ALLOWED` → executes. The approvals are acquired and bound in the ruling;
    the approval-required path is covered deterministically in `tests/`.
 5. Request a 900 payment to the approved vendor without approvals → `ALLOWED`

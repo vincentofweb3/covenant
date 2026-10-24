@@ -8,7 +8,7 @@ AGREE/AGREE/IDLE/AGREE/AGREE.
 
 What this demonstrates
 ---------------------
-1. a compliant recurring payment is ALLOWED and moves value
+1. a compliant payment is ALLOWED and moves value
 2. a large payment with two distinct signer approvals is ALLOWED and moves value
 3. the *same* large payment without approvals is VIOLATED and is refused
 4. a payment to a vendor whose on-chain claim is `not_approved` is VIOLATED
@@ -352,7 +352,7 @@ def main() -> int:
 			"op-small",
 			SMALL_PAYMENT,
 			deployer,
-			"recurring monthly retainer",
+			"vendor retainer",
 			"ALLOWED",
 			0,
 		),
@@ -360,7 +360,7 @@ def main() -> int:
 			"op-signed",
 			SMALL_PAYMENT,
 			deployer,
-			"recurring monthly retainer with two recorded signer approvals",
+			"vendor retainer with two recorded signer approvals",
 			"ALLOWED",
 			2,
 		),
@@ -368,7 +368,7 @@ def main() -> int:
 			"op-big",
 			OVERSIZED_PAYMENT,
 			deployer,
-			"recurring monthly strategic payment above the threshold with no approvals",
+			"vendor retainer above the threshold with no approvals",
 			"VIOLATED",
 			0,
 		),
@@ -469,7 +469,7 @@ def main() -> int:
 			"op-after",
 			deployer,
 			OVERSIZED_PAYMENT,
-			"recurring monthly retainer",
+			"vendor retainer",
 		],
 		"vault.request_payment(op-after)",
 	)

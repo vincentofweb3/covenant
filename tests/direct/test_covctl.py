@@ -140,7 +140,7 @@ def test_digest_of_the_example_is_stable():
     leave the record pointing at text that no longer exists.
     """
     assert covctl.covenant_digest(EXAMPLE.read_text(encoding="utf-8")) == (
-        "c1df2e75fed96423b6a8ac4cd08de041b7b23d2a7c5d5ca7e214eefc3f8de608"
+        "fea742a0c51497a7288181070698f403f162a89fb8c16d53688bb4a0c2bf9b5e"
     )
 
 
@@ -319,9 +319,9 @@ def test_a_clean_covenant_produces_no_errors():
 @pytest.mark.parametrize(
     ("excerpt", "expected"),
     [
-        ("Recurring monthly payments to an approved vendor are permitted", True),
-        ("  Recurring monthly payments to an approved vendor are permitted  ", True),
-        ("Recurring monthly payments to an approved vendor are permitted".upper(), False),
+        ("Payments of 50000 GEN or less to an approved vendor are permitted", True),
+        ("  Payments of 50000 GEN or less to an approved vendor are permitted  ", True),
+        ("Payments of 50000 GEN or less to an approved vendor are permitted".upper(), False),
         ("", False),
         ("   \n\t", False),
         ("Payments below 50000 require no approval at all", False),
@@ -384,7 +384,7 @@ def test_cli_compile_refuses_a_covenant_with_errors(tmp_path):
 
 
 def test_cli_check_excerpt_accepts_a_real_clause():
-    excerpt = "Recurring monthly payments to an approved vendor are permitted"
+    excerpt = "Payments of 50000 GEN or less to an approved vendor are permitted"
     assert _run("check-excerpt", str(EXAMPLE), "--excerpt", excerpt).returncode == 0
 
 
@@ -393,7 +393,7 @@ def test_cli_check_excerpt_accepts_a_real_clause():
     [
         "",
         "Payments below 50000 require no approval at all",
-        "Recurring monthly payments to an approved vendor are permitted".upper(),
+        "Payments of 50000 GEN or less to an approved vendor are permitted".upper(),
     ],
 )
 def test_cli_check_excerpt_rejects_what_the_contract_would_reject(excerpt):

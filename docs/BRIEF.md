@@ -102,17 +102,18 @@ in force, and that the guard cannot be edited by whoever it is blocking.
 
 ## Main risks
 
-1. **Real consensus is unobserved.** The design assumes the GenVM runtime drops a
-   transaction whose validators disagree. Demonstrated on glsim; not on the
-   runtime.
+1. **Real consensus is observed only on one live run.** 39/39 transactions
+   finalized with `MAJORITY_AGREE`; one judge needed three rounds. That is not a
+   reliability claim. glsim still drives a split to `UNDETERMINED`.
 2. **The excerpt check proves a clause is real, not that it applies.** A model can
    cite a genuine clause that does not support the operation. Irreducible here.
 3. **A real model may be poor at citing.** The design is strict on purpose, and
    strictness that a live model cannot satisfy would make the guard unusable. Only
    a live run will show.
-4. **Live models may be non-deterministic across leader and validators.** High
-   agreement requirements could make every ruling fail closed, which is safe and
-   useless.
+4. **Live models can be non-deterministic across leader and validators.** An
+   earlier covenant with overlapping permissions produced `MAJORITY_DISAGREE`
+   and failed closed. Disjoint amount thresholds fixed that run; high agreement
+   requirements can still make a ruling fail closed, which is safe and useless.
 5. **No appeal path.** A wrongly-blocked payment has no recourse. Currently a
    documented open decision, not an oversight.
 
@@ -123,7 +124,7 @@ demonstrable on the simulator; and a single live ruling can be obtained. Stop an
 re-scope if the live network cannot produce a reliable three-way agreement — at
 that point the honest deliverable is the primitive plus its tests, not a demo.
 
-**Gate status:** construction and the pre-amendment live run passed. The amended
-contracts pass lint/preflight and the direct + simulator suites, but have **not**
-been redeployed yet. The amended demo is ready to run; do not cite the old live
-evidence for the provenance claim.
+**Gate status:** construction, the amended deployment, and the full live
+demonstration passed. 39/39 transactions finalized with `MAJORITY_AGREE`; all
+five enforcement outcomes matched. The live run is evidence for this
+demonstration, not for consensus reliability.

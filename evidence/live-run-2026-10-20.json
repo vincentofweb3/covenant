@@ -1,0 +1,446 @@
+{
+  "network": {
+    "rpc": "https://studio.genlayer.com/api",
+    "chain_id": 61999,
+    "gas": "baseFeePerGas 0, gasPrice 0 \u2014 gasless"
+  },
+  "deployer": "0x158e5ccAA39F7Db714B35Ae5fb6A5d925BE219cD",
+  "deployer_balance_wei": "0",
+  "guard": "0xC5335e9A9F96fE77Ca8944E01e11085296E88556",
+  "vault": "0xe2e7DaB935b5328E12f0D4c3F842481ed4c6497a",
+  "constructor": {
+    "quorum": 2,
+    "timelock_seconds": 60
+  },
+  "transactions": [
+    {
+      "label": "deploy covenant_guard.py",
+      "tx_id": "0xc743211ca3b2222c091ea77fa53aff68f470006ec433582ea4b8deae4ad130bc",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "deploy treasury_vault.py",
+      "tx_id": "0xffa40a5bb54a730833f1678e5f203043f240efd652becb8d6f1d2873f5a06a40",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "guard.register_vault",
+      "tx_id": "0x21c273ae31a4d014f6735bbc061f4fa905eff3a0a19decae3dd69f535ad6e173",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "vault.deposit(1,000,000)",
+      "tx_id": "0x87a3273b9b74ec3273abd11ed9fb92fd04847bda94b6c7ce7c79149e2c49be09",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,idle"
+    },
+    {
+      "label": "vault.request_payment(op-small)",
+      "tx_id": "0x169b657510d49024196c179513887e6d6c737f062ce78325fe7916c3d3e48375",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "  child of request_payment(op-small)",
+      "tx_id": "0xd36b6af09b66273142aae86957f8b570fa30847d72476937614f79f84b042e60",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "guard.judge_operation(op-small)",
+      "tx_id": "0x10cc5820a11e20d13fd72367f34d77a89959056aa90a0e2712aa2ba6aed16af2",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "3",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,idle,disagree,agree"
+    },
+    {
+      "label": "guard.finalize_operation(op-small)",
+      "tx_id": "0x53432c4fb0d4795bf66ebe178933bcb7819933d1ade07c33034ff8d9c04897ad",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "vault.execute_payment(op-small)",
+      "tx_id": "0xfc2b07f04ca54dab242f7c52a7cb5091321b1c14e1580ca507c644701488a4fc",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,idle"
+    },
+    {
+      "label": "vault.request_payment(op-big)",
+      "tx_id": "0x639d8ce9eb17151ca4a01a29e1774ca50d1743c01e043812538d78a0de2c9fd2",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,agree,idle,agree"
+    },
+    {
+      "label": "  child of request_payment(op-big)",
+      "tx_id": "0xd7c6afb1b5f903c5a5822e6918027e80553f23ae20ceaa5434b1566d1f9d0207",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,agree,agree,agree"
+    },
+    {
+      "label": "guard.judge_operation(op-big)",
+      "tx_id": "0x67d5e27d4af40a66bb19003dc5094081787edf91df6f1b0924d9a49c657d2f36",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "2",
+      "leader_execution": "SUCCESS",
+      "validators": "disagree,disagree,agree,agree"
+    },
+    {
+      "label": "guard.finalize_operation(op-big)",
+      "tx_id": "0x7de7a959578266b69ecd60c6dbf50aa4750e022ddc3f46ae41349b6bfa39476a",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,agree,agree,agree"
+    },
+    {
+      "label": "vault.execute_payment(op-big)",
+      "tx_id": "0xf8c936708407c2b8fa27647c405292dabe1b2fc6bf839a3a17e1eb8cef371e7f",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "ERROR",
+      "validators": "agree,agree,agree,idle"
+    },
+    {
+      "label": "vault.request_payment(op-prohibited)",
+      "tx_id": "0xb3cc35be922b0064add87cd72e1c3529b81f7ec2b4c8a798e5a460d3a183deeb",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "  child of request_payment(op-prohibited)",
+      "tx_id": "0x066b9b3cede6dbd6d040887a24628ad184e3f71565a68fffd2a88f35d78a1cd3",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "guard.judge_operation(op-prohibited)",
+      "tx_id": "0xd420c8d9f52d2d92bfd3b106e6bd733de59c3241f6415c318413e4dca6e95583",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,idle,agree,disagree"
+    },
+    {
+      "label": "guard.finalize_operation(op-prohibited)",
+      "tx_id": "0x743a6c1d9ab95201accc366bccad33958686906a961cffd21c94d0aa1efbb082",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,agree,agree,agree"
+    },
+    {
+      "label": "vault.execute_payment(op-prohibited)",
+      "tx_id": "0xef7a2846b1c5eca283a6841fed08abe6b4f68493272cc29ce07330a9b610aa45",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "ERROR",
+      "validators": "agree,agree,idle,agree"
+    },
+    {
+      "label": "guard.propose_amendment(50000 -> 250000)",
+      "tx_id": "0x149db125c14d251cad57f5ae7cb79269ed890fc2be2c07ce5b37821f55278506",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,idle,agree,agree"
+    },
+    {
+      "label": "approve (deployer)",
+      "tx_id": "0xae4a1a4473e2aaf59ff08ea827661621e5089a64f50b7ec0ae42a02f5527453e",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "approve (second distinct signer)",
+      "tx_id": "0x2c953836086c3bdeb8d1d000b9523634d8bd0ddac05f2d0fd957783bacac21fb",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,agree,agree,agree"
+    },
+    {
+      "label": "guard.activate_amendment",
+      "tx_id": "0x70c53832febf88bed49883955a41e8015acf05c732c2ddd28733f62e9639d4f3",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,idle,agree,idle"
+    },
+    {
+      "label": "vault.request_payment(op-after)",
+      "tx_id": "0xb8bdf8dfc31aba76b27daf6c9a4d4a7cec31a5581dca86bb26c83200dc33da57",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "  child of request_payment(op-after)",
+      "tx_id": "0x2b628692a46f4c76c4cc979f6f8fec4c71682d372d22dc270be11370b9aa518c",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,agree,agree"
+    },
+    {
+      "label": "guard.judge_operation(op-after)",
+      "tx_id": "0xca7666ce9534c27bedf51d0bd7a320d0e1918d8cf545e518de6616548a13f7b8",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "agree,agree,idle,disagree"
+    },
+    {
+      "label": "guard.finalize_operation(op-after)",
+      "tx_id": "0x8b91197e51bc032c9eb5688eecf22872c046fe484c51af67ae8af73b621de65f",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,agree,agree,idle"
+    },
+    {
+      "label": "vault.execute_payment(op-after)",
+      "tx_id": "0x21d6c8d8b8845c0b0b36a77710dc82555c8d78ae7e942f172c58e1fa894ba867",
+      "status": "FINALIZED",
+      "result": "MAJORITY_AGREE",
+      "rounds": "1",
+      "leader_execution": "SUCCESS",
+      "validators": "idle,idle,agree,agree"
+    }
+  ],
+  "reads": [
+    {
+      "label": "guard governance",
+      "method": "get_governance",
+      "value": "{\"covenant_hash\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"quorum\":2,\"timelock_seconds\":60,\"version\":1}"
+    },
+    {
+      "label": "vault balance",
+      "method": "get_balance",
+      "value": 1000000
+    },
+    {
+      "label": "covenant version (expect 1)",
+      "method": "get_covenant_version",
+      "value": 1
+    },
+    {
+      "label": "payments so far",
+      "method": "get_payment_count",
+      "value": 0
+    },
+    {
+      "label": "ruling for op-small",
+      "method": "get_ruling",
+      "value": "{\"covenant_digest\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"excerpt\":\"Recurring monthly payments to an approved vendor are permitted.\",\"excerpt_verified\":true,\"input_digest\":\"804a12bb73efbc066209d7b200c2efe005b5d8da5435c7a3e496d3f2b598d174\",\"judged_at\":1792500706,\"model_failure\":false,\"reason_code\":\"CITED_CLAUSE\",\"ruling_digest\":\"7c88cb6faccc425a5faea703af84e6033b23706ed781f39c88f1c5ef4e809be3\",\"verdict\":\"ALLOWED\"}"
+    },
+    {
+      "label": "  guard state op-small",
+      "method": "get_operation_status",
+      "value": "FINALIZED"
+    },
+    {
+      "label": "  balance before execute",
+      "method": "get_balance",
+      "value": 1000000
+    },
+    {
+      "label": "  balance after execute",
+      "method": "get_balance",
+      "value": 999100
+    },
+    {
+      "label": "  payment status op-small",
+      "method": "get_payment_status",
+      "value": "EXECUTED"
+    },
+    {
+      "label": "ruling for op-big",
+      "method": "get_ruling",
+      "value": "{\"covenant_digest\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"excerpt\":\"Clause 3: No single payment above 50000 GEN may be released without multisig approval from two distinct signers.\",\"excerpt_verified\":true,\"input_digest\":\"06761b079279c83f2d86a30c0873bb57b95e18f2e9c4a32a3a5af78ea23eaf54\",\"judged_at\":1792500960,\"model_failure\":false,\"reason_code\":\"POLICY_DENIAL\",\"ruling_digest\":\"ccafe05d419c1b60471589bd4381e0c2873bc3bc35afb2c91ccc14a867334716\",\"verdict\":\"VIOLATED\"}"
+    },
+    {
+      "label": "  guard state op-big",
+      "method": "get_operation_status",
+      "value": "REJECTED"
+    },
+    {
+      "label": "  balance before execute",
+      "method": "get_balance",
+      "value": 999100
+    },
+    {
+      "label": "  balance after execute",
+      "method": "get_balance",
+      "value": 999100
+    },
+    {
+      "label": "  payment status op-big",
+      "method": "get_payment_status",
+      "value": "REQUESTED"
+    },
+    {
+      "label": "ruling for op-prohibited",
+      "method": "get_ruling",
+      "value": "{\"covenant_digest\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"excerpt\":\"Clause 4: Any counterparty not on the approved vendor list is prohibited.\",\"excerpt_verified\":true,\"input_digest\":\"80c9c07c0d450356531286c3f4f386dfde57f15634cad4542a2eaebb040397a5\",\"judged_at\":1792501218,\"model_failure\":false,\"reason_code\":\"POLICY_DENIAL\",\"ruling_digest\":\"200e2fb89d6f9e4b3dc9eccd17d07a2010b9e23850b4da5c3a57e9b9bac986f9\",\"verdict\":\"VIOLATED\"}"
+    },
+    {
+      "label": "  guard state op-prohibited",
+      "method": "get_operation_status",
+      "value": "REJECTED"
+    },
+    {
+      "label": "  balance before execute",
+      "method": "get_balance",
+      "value": 999100
+    },
+    {
+      "label": "  balance after execute",
+      "method": "get_balance",
+      "value": 999100
+    },
+    {
+      "label": "  payment status op-prohibited",
+      "method": "get_payment_status",
+      "value": "REQUESTED"
+    },
+    {
+      "label": "amendment status after quorum",
+      "method": "get_amendment_status",
+      "value": "APPROVED"
+    },
+    {
+      "label": "covenant version (expect 2)",
+      "method": "get_covenant_version",
+      "value": 2
+    },
+    {
+      "label": "governance after amendment",
+      "method": "get_governance",
+      "value": "{\"covenant_hash\":\"5c011cde947dde5667c4bc74f00ae98f3d912bd661af42b92cfd9f457a5aa6d7\",\"quorum\":2,\"timelock_seconds\":60,\"version\":2}"
+    },
+    {
+      "label": "ruling for op-after",
+      "method": "get_ruling",
+      "value": "{\"covenant_digest\":\"5c011cde947dde5667c4bc74f00ae98f3d912bd661af42b92cfd9f457a5aa6d7\",\"excerpt\":\"Clause 2: Recurring monthly payments to an approved vendor are permitted.\",\"excerpt_verified\":true,\"input_digest\":\"93b1cf4da39b9fff2249afd4b5c6b64d812527bbddf5de02b0459914fca1d49a\",\"judged_at\":1792501691,\"model_failure\":false,\"reason_code\":\"CITED_CLAUSE\",\"ruling_digest\":\"62f045c5ae84b370654046a3c9511ed7836d54ef0ca1eb2953d3be294f2274d5\",\"verdict\":\"ALLOWED\"}"
+    },
+    {
+      "label": "  guard state op-after",
+      "method": "get_operation_status",
+      "value": "FINALIZED"
+    },
+    {
+      "label": "  balance before execute",
+      "method": "get_balance",
+      "value": 999100
+    },
+    {
+      "label": "  balance after execute",
+      "method": "get_balance",
+      "value": 879100
+    },
+    {
+      "label": "  payment status op-after",
+      "method": "get_payment_status",
+      "value": "EXECUTED"
+    },
+    {
+      "label": "vault totals",
+      "method": "get_totals",
+      "value": "{\"balance\":879100,\"deposits_total\":1000000,\"outflow_total\":120900}"
+    }
+  ],
+  "outcomes": {
+    "op-small": {
+      "amount": 900,
+      "expected": "ALLOWED",
+      "ruling": "{\"covenant_digest\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"excerpt\":\"Recurring monthly payments to an approved vendor are permitted.\",\"excerpt_verified\":true,\"input_digest\":\"804a12bb73efbc066209d7b200c2efe005b5d8da5435c7a3e496d3f2b598d174\",\"judged_at\":1792500706,\"model_failure\":false,\"reason_code\":\"CITED_CLAUSE\",\"ruling_digest\":\"7c88cb6faccc425a5faea703af84e6033b23706ed781f39c88f1c5ef4e809be3\",\"verdict\":\"ALLOWED\"}",
+      "execute_refused": false,
+      "balance_moved": -900,
+      "payment_status": "EXECUTED"
+    },
+    "op-big": {
+      "amount": 120000,
+      "expected": "VIOLATED",
+      "ruling": "{\"covenant_digest\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"excerpt\":\"Clause 3: No single payment above 50000 GEN may be released without multisig approval from two distinct signers.\",\"excerpt_verified\":true,\"input_digest\":\"06761b079279c83f2d86a30c0873bb57b95e18f2e9c4a32a3a5af78ea23eaf54\",\"judged_at\":1792500960,\"model_failure\":false,\"reason_code\":\"POLICY_DENIAL\",\"ruling_digest\":\"ccafe05d419c1b60471589bd4381e0c2873bc3bc35afb2c91ccc14a867334716\",\"verdict\":\"VIOLATED\"}",
+      "execute_refused": true,
+      "balance_moved": 0,
+      "payment_status": "REQUESTED"
+    },
+    "op-prohibited": {
+      "amount": 500,
+      "expected": "VIOLATED",
+      "ruling": "{\"covenant_digest\":\"afd824702fd05cd7c277adf84d8d1c9feba669eeda8ba50681b67259d363837b\",\"excerpt\":\"Clause 4: Any counterparty not on the approved vendor list is prohibited.\",\"excerpt_verified\":true,\"input_digest\":\"80c9c07c0d450356531286c3f4f386dfde57f15634cad4542a2eaebb040397a5\",\"judged_at\":1792501218,\"model_failure\":false,\"reason_code\":\"POLICY_DENIAL\",\"ruling_digest\":\"200e2fb89d6f9e4b3dc9eccd17d07a2010b9e23850b4da5c3a57e9b9bac986f9\",\"verdict\":\"VIOLATED\"}",
+      "execute_refused": true,
+      "balance_moved": 0,
+      "payment_status": "REQUESTED"
+    },
+    "op-after": {
+      "amount": 120000,
+      "expected": "ALLOWED (threshold raised)",
+      "ruling": "{\"covenant_digest\":\"5c011cde947dde5667c4bc74f00ae98f3d912bd661af42b92cfd9f457a5aa6d7\",\"excerpt\":\"Clause 2: Recurring monthly payments to an approved vendor are permitted.\",\"excerpt_verified\":true,\"input_digest\":\"93b1cf4da39b9fff2249afd4b5c6b64d812527bbddf5de02b0459914fca1d49a\",\"judged_at\":1792501691,\"model_failure\":false,\"reason_code\":\"CITED_CLAUSE\",\"ruling_digest\":\"62f045c5ae84b370654046a3c9511ed7836d54ef0ca1eb2953d3be294f2274d5\",\"verdict\":\"ALLOWED\"}",
+      "execute_refused": false,
+      "balance_moved": -120000,
+      "payment_status": "EXECUTED"
+    }
+  },
+  "covenant_hash_at_deploy": null
+}

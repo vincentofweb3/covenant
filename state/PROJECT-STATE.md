@@ -2,8 +2,9 @@
 
 ## Current status
 
-**Evidence-provenance amendment implemented. 190 direct + 29 integration + 20
-probe tests green. The amended contracts are not deployed yet.**
+**Evidence-provenance amendment implemented, deployed, and demonstrated live.
+190 direct + 29 integration + 20 probe tests green. 39/39 live transactions
+finalized with `MAJORITY_AGREE`; all five enforcement outcomes matched.**
 
 The original submission was rejected because the treasury authorization could
 depend on external facts while the contract evaluated only evidence text supplied
@@ -14,8 +15,8 @@ reads the current claims at ruling time and binds their digest into the ruling;
 the vault re-checks the evidence subject/digest before moving funds.
 
 Both contracts pass `genvm-lint` and `preflight.py`. Direct and simulator suites
-are green. The live deployment below is the **pre-amendment** run and does not
-contain attestation or approval transactions.
+are green. The live deployment below is the amended run: it contains attestations,
+signer approvals, evidence-bound rulings, and the v1 → v2 amendment.
 
 ## What exists
 
@@ -27,14 +28,14 @@ contain attestation or approval transactions.
 | `tests/direct/test_adversarial.py` | 232 | boundaries around the seam: injection, case, capture, laundering |
 | `tests/direct/test_amendment_flow.py` | 295 | quorum, timelock, staleness, version history |
 | `tests/direct/test_evidence_provenance.py` | 284 | role-gated claims, expiry, approvals, evidence binding |
-| `tests/direct/test_covctl.py` | 240 | the linter, and that its digest equals the contract's |
+| `tests/direct/test_covctl.py` | 459 | the linter, and that its digest equals the contract's |
 | `tests/direct/conftest.py` | 143 | fixtures, attestations, `set_clock`, SDK pin |
 | `tests/integration/test_lifecycle.py` | 443 | **the refusal proof** + evidence provenance |
 | `tests/integration/test_consensus.py` | 236 | real validator voting, via a documented harness shim |
 | `tests/integration/conftest.py` | 569 | glsim harness, typed calldata, simulated clock, validator capture |
 | `scripts/covctl.py` | 420 | covenant compiler + policy linter + digest + citation checker |
 | `scripts/preflight.py` | 230 | 265 architectural invariants + secret scan |
-| `scripts/live_demo.py` | 560 | live deploy + attestations/approvals + demonstration, retries transient network errors, evidence to JSON |
+| `scripts/live_demo.py` | 561 | live deploy + attestations/approvals + demonstration, retries transient network errors, evidence to JSON |
 | `docs/THREAT_MODEL.md` | — | threats → controls, explicit non-goals, what is not established |
 | `docs/CONSENSUS.md` | — | the leader/validator protocol, precisely |
 | `docs/ARCHITECTURE.md` | 202 | state, machines, message sequence, trust boundaries |
@@ -49,7 +50,7 @@ contain attestation or approval transactions.
 ```console
 $ python3 -m compileall -q contracts scripts tests
 $ python3 scripts/preflight.py
-✓ Preflight passed (329 checks, 56 files scanned)
+✓ Preflight passed (329 checks, 58 files scanned)
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/covenant_guard.py
 ✓ Validation passed
@@ -162,40 +163,42 @@ the claim is true. Attestor keys are immutable, with no rotation/revocation.
 Evidence is a ruling-time snapshot; expiry is not re-checked at execution. See
 `docs/THREAT_MODEL.md` §2.6–2.8 and §6.
 
-## LIVE — pre-amendment run on studionet (2026-10-20)
+## LIVE — amended run on studionet (2026-10-24)
 
-**The blocker was based on a wrong assumption: studionet is gasless.**
-`baseFeePerGas` is 0, `eth_gasPrice` is 0, and every block reports `gasUsed` 0.
-The zero-balance deployer `0x158e5ccAA39F7Db714B35Ae5fb6A5d925BE219cD` deployed
-both contracts successfully. No faucet, no test tokens.
+The amended contracts deployed successfully with the zero-balance key, then ran
+the full attestation → request → approvals → ruling → execution path.
 
 | | |
 |---|---|
-| `covenant_guard` | `0xC5335e9A9F96fE77Ca8944E01e11085296E88556` |
-| `treasury_vault` | `0xe2e7DaB935b5328E12f0D4c3F842481ed4c6497a` |
-| Transactions | 28, all `MAJORITY_AGREE`, 5 validators |
-| Rounds observed | 1, 2 and 3 |
+| `covenant_guard` | `0xaBe274C9429F025419cAf7C00c007c4c6B3af24e` |
+| `treasury_vault` | `0x56d62A2526D5d5f3DA5C3c51790fac43D9414D4d` |
+| Transactions | 39, all `FINALIZED` / `MAJORITY_AGREE`, 5 validators |
+| Rounds observed | 38 at 1 round; the `op-big` judge at 3 |
+| Covenant v1 | `fea742a0c51497a7288181070698f403f162a89fb8c16d53688bb4a0c2bf9b5e` |
+| Covenant v2 | `9aec91476aa33aa414cc355313addd23b17a871ba24e8ab42cec570e8d433275` |
 
-All four enforcement expectations held:
+All five enforcement expectations held:
 
 | Step | Amount | Verdict | State | Moved |
 |---|---|---|---|---|
 | `op-small` | 900 | ALLOWED | FINALIZED | −900 |
+| `op-signed` | 900 | ALLOWED | FINALIZED | −900 |
 | `op-big` | 120,000 | VIOLATED | REJECTED | 0 |
 | `op-prohibited` | 500 | VIOLATED | REJECTED | 0 |
 | `op-after` | 120,000 | ALLOWED | FINALIZED | −120,000 |
 
-`op-big` and `op-after` are the same payment. Between them the covenant was
-amended by quorum + timelock, v1 → v2, and the identical payment flipped from
-refused to executed. Balances reconcile exactly: 1,000,000 − 900 − 120,000 = 879,100.
+`op-signed` has two distinct signer approvals bound to the operation; it is
+permitted independently because it is below the threshold. `op-big` and
+`op-after` are the same payment, split by the quorum + timelock amendment; it
+flipped from refused to executed. Balances reconcile exactly:
+`1,000,000 − 900 − 900 − 120,000 = 878,200` (`get_totals` returned the same
+values).
 
-Evidence: `evidence/studionet-2026-10-20.md` and `evidence/live-run.json`.
-**This is the pre-amendment run.** It contains no attestations or approvals and
-must not be cited for the provenance claim. The amended demo (`scripts/live_demo.py`)
-now deploys with evidence roles, attests vendor/risk claims, approves the large
-payment with two signers, and is ready to re-run after commit.
+Evidence: `evidence/studionet-2026-10-24.md` and `evidence/live-run.json`.
+Historical pre-amendment run: `evidence/studionet-2026-10-20.md` and
+`evidence/live-run-2026-10-20.json`.
 
-### Two defects the live run exposed
+### Two earlier live defects
 
 **10. The demo omitted `finalize_operation`.** `judge_operation` leaves an
 operation `RULED`; `is_downstream_actionable` correctly returns false until
@@ -204,40 +207,44 @@ every execution was refused — the guard was right and the demo was wrong. Wort
 recording because the failure looked like a contract bug and was not.
 
 **11. Both test trees imported `conftest` as a top-level module.** `pytest
-tests/direct` and `pytest tests/integration` each passed alone, but
-`pytest tests` failed: `from conftest import set_clock` resolved to whichever
+tests/direct` and `pytest tests/integration` each passed alone, but `pytest
+tests` failed: `from conftest import set_clock` resolved to whichever
 `conftest.py` pytest had imported first. Fixed by making both trees packages and
 using relative imports, plus a uniquely named `direct_support.py`. 164 tests now
 pass in one run, where before the combined run failed.
 
-### Findings from the live run
+### Findings from the live runs
 
 1. **Studionet is gasless.** The entire "fund the key" blocker was wrong.
 2. **`finalize_operation` is a required step.** `judge_operation` leaves the
    operation `RULED`; `is_downstream_actionable` correctly returns false until
-   `finalize_operation` settles it. The first live attempt omitted it and every
-   execution was refused — the guard was right, the demo was incomplete.
-3. **`ALLOWED` is not the default under a threshold.** A one-off payment below
-   the amended threshold came back `AMBIGUOUS`/`EVIDENCE_INSUFFICIENT`, because
-   the covenant prohibits but never affirmatively permits one-off payments. Fail
-   closed, and arguably correct — but it means covenant wording drives outcomes,
-   not just numbers.
-4. **The fabricated-excerpt defence is still unproven on-chain.** It needs a
+   `finalize_operation` settles it.
+3. **Policy wording must be disjoint.** Earlier drafts had a recurring-payment
+   permission and a threshold-approval clause. A 120,000 payment with two
+   approvals split validators across those overlapping permissions and produced
+   `MAJORITY_DISAGREE` with no ruling. The covenant now states the policy purely
+   by amount: at or below the threshold is permitted to an approved vendor; above
+   it requires two signers. The same denial then produced a clean `VIOLATED`.
+4. **`ALLOWED` is not the default under a threshold.** A one-off payment below
+   the amended threshold once came back `AMBIGUOUS`/`EVIDENCE_INSUFFICIENT`,
+   because the old covenant prohibited but never affirmatively permitted it.
+   Fail closed, but covenant wording drives outcomes, not just numbers.
+5. **The fabricated-excerpt defence is still unproven on-chain.** It needs a
    hallucinating model, which cannot be provoked from outside. Proven only with
    an injected model in the test suites. Do not blur this in any write-up.
 
 ## Next checkpoint
 
-The evidence-provenance amendment is implemented and locally green. Remaining:
+The amendment is deployed, evidenced, and locally green. Remaining:
 
-1. commit the amendment (user approval required);
-2. regenerate the covenant fixture and covctl vendor/fixture from that commit;
-3. run the full suite, preflight, and lint again;
-4. redeploy to studionet with the amended demo (attestations + approvals);
-5. record new evidence and replace the pre-amendment live table;
-6. resubmit, citing the rejection and the specific control that answers it.
+1. commit the final evidence and documentation;
+2. push Covenant and covctl;
+3. resubmit, citing the rejection and the specific control that answers it:
+   requester cannot supply facts; role-gated claims are read at ruling time;
+   evidence digest/subject are bound into the ruling; the vault re-checks both
+   before moving funds.
 
-The pre-amendment live run resolved the original deployment question but is **not**
-evidence for the provenance claim. The fabricated-excerpt defence remains proven
-only with an injected model; the attestor-honesty assumption is disclosed in
+The live run establishes that this demonstration worked once, not consensus
+reliability. The fabricated-excerpt defence remains proven only with an injected
+model; the attestor-honesty assumption is disclosed in
 `docs/THREAT_MODEL.md` §2.6.

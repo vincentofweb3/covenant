@@ -2,12 +2,13 @@
 
 > **Pre-amendment run.** This predates the evidence-provenance amendment. It
 > contains no vendor/risk attestations and no signer approvals, and must not be
-> cited for the provenance claim. The amended demo has not been redeployed yet.
+> cited for the provenance claim. Superseded by the amended run in
+> `studionet-2026-10-24.md`.
 
 First live deployment and demonstration of Covenant. Every transaction below
 reached `FINALIZED` with consensus result `MAJORITY_AGREE`.
 
-Raw data: [`live-run.json`](live-run.json) — 28 transactions, 22 reads.
+Raw data: [`live-run-2026-10-20.json`](live-run-2026-10-20.json) — 28 transactions, 22 reads.
 
 ## Network
 

@@ -137,22 +137,32 @@ block reports `gasUsed` 0 — so no funded account or faucet is needed.
 
 ### Live deployment
 
-**Pre-amendment run.** The addresses and evidence below predate the evidence-
-provenance amendment and do not contain attestation or approval transactions. The
-amended contracts are not deployed yet. Do not cite this run for the provenance
-claim; re-run `scripts/live_demo.py` after the amendment is committed.
+The amended contracts are deployed and the full demonstration passed.
 
 | Contract | Address |
 |---|---|
-| `covenant_guard` | `0xC5335e9A9F96fE77Ca8944E01e11085296E88556` |
-| `treasury_vault` | `0xe2e7DaB935b5328E12f0D4c3F842481ed4c6497a` |
+| `covenant_guard` | `0xaBe274C9429F025419cAf7C00c007c4c6B3af24e` |
+| `treasury_vault` | `0x56d62A2526D5d5f3DA5C3c51790fac43D9414D4d` |
 
-28 transactions, all `FINALIZED` with `MAJORITY_AGREE`, 5 validators, 1–3 rounds.
-A 120,000 payment was refused under covenant v1, the covenant was amended by
-quorum and timelock, and the same payment executed under v2. Balances reconcile
-exactly: `1,000,000 − 900 − 120,000 = 879,100`.
+39 transactions, all `FINALIZED` with `MAJORITY_AGREE`, 5 validators, 1–3 rounds.
+Every fact came from role-gated on-chain claims; the requester supplied only the
+instruction and subject.
 
-Evidence: [`evidence/studionet-2026-10-20.md`](evidence/studionet-2026-10-20.md).
+| Step | Amount | Verdict | State | Moved |
+|---|---|---|---|---|
+| `op-small` | 900 | ALLOWED | FINALIZED | −900 |
+| `op-signed` | 900 | ALLOWED | FINALIZED | −900 |
+| `op-big` | 120,000 | VIOLATED | REJECTED | 0 |
+| `op-prohibited` | 500 | VIOLATED | REJECTED | 0 |
+| `op-after` | 120,000 | ALLOWED | FINALIZED | −120,000 |
+
+`op-signed` carries two distinct signer approvals bound to the exact operation.
+`op-big` was refused under covenant v1; the covenant was then amended by quorum +
+timelock, and the same payment executed under v2. Balances reconcile exactly:
+`1,000,000 − 900 − 900 − 120,000 = 878,200`.
+
+Evidence: [`evidence/studionet-2026-10-24.md`](evidence/studionet-2026-10-24.md)
+and [`evidence/live-run.json`](evidence/live-run.json).
 Reproduce: `python3 scripts/live_demo.py`.
 
 ---
@@ -197,14 +207,14 @@ and digest that the guard stored on the operation.
 
 These are not hedges. They are the claims this project does **not** make.
 
-1. **Real consensus is unobserved.** The design assumes the GenVM runtime drops a
-   transaction whose validators disagree. `tests/integration/test_consensus.py`
-   drives glsim's `run_consensus` directly — because `sim_call` and `gen_call`
-   never run consensus at all, and `sim_call` hardcodes `"status": "FINALIZED"`
-   — and shows a split producing `UNDETERMINED`. But glsim is not the runtime.
-2. **No live model was ever consulted.** Every test substitutes a fixed reply
-   function. Whether a real model cites real clauses, and agrees with other real
-   validators, is unmeasured.
+1. **Real consensus is observed only on one live run.** 39/39 transactions
+   finalized with `MAJORITY_AGREE`, including a judge that needed three rounds.
+   That is evidence the runtime worked here, not a reliability claim. glsim still
+   drives a split to `UNDETERMINED` in `tests/integration/test_consensus.py`.
+2. **A live model was consulted five times, not measured.** All five rulings
+   matched the expected verdict and cited a real clause. Whether that agreement
+   generalizes — especially on ambiguous policy wording — is unmeasured; an
+   earlier, overlapping covenant produced `MAJORITY_DISAGREE` and failed closed.
 3. **Not escrow, not settlement.** Vault balances are internal accounting
    entries. No native token is transferred and nothing here is custody of funds.
 4. **The prompt-injection denylist is not a security boundary** and is not

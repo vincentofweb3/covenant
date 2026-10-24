@@ -230,13 +230,14 @@ transaction cannot write state at all.
 
 ## 6. What this does not establish
 
-1. **Real consensus is unobserved.** The largest unproven assumption in the
-   design is that the GenVM runtime drops a transaction whose validators
-   disagree. glsim with the capture shim shows a split producing `UNDETERMINED`,
-   but glsim is not the runtime.
-2. **No live model was ever consulted.** Every test substitutes a fixed reply.
-   Whether a real model returns correct verdicts, cites real clauses, and agrees
-   with other validators is unmeasured.
+1. **Real consensus is observed only on one live run.** 39/39 transactions
+   finalized with `MAJORITY_AGREE`, including a judge that needed three rounds.
+   That establishes the runtime worked here; it is not a reliability claim.
+   glsim with the capture shim still shows a split producing `UNDETERMINED`.
+2. **A live model was consulted five times, not measured.** All five rulings
+   matched the expected verdict and cited a real clause. Whether that agreement
+   generalizes, especially on ambiguous policy wording, is unmeasured. An
+   earlier overlapping covenant produced `MAJORITY_DISAGREE` and failed closed.
 3. **Consensus reliability is not demonstrated by successful fixtures.** One
    green run is not a reliability claim.
 4. **No gas, cost or size analysis.** `MAX_*` bounds exist; their adequacy under
@@ -253,3 +254,8 @@ transaction cannot write state at all.
    role key is not compromised.
 9. **The evidence snapshot is not revalidated at execution.** A claim valid at
    ruling time may expire before the vault executes the payment.
+10. **Policy wording can split consensus.** A live run with overlapping
+    permissions produced `MAJORITY_DISAGREE`, which fails closed but yields no
+    ruling. The demo covenant now uses disjoint amount thresholds. This is a
+    policy-authoring constraint, not a proof that every covenant will reach
+    consensus.

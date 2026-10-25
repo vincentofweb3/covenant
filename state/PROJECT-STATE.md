@@ -123,10 +123,12 @@ ones.
 
 Carried forward from `state/REVIEW_ROUND3.md` §5 and `docs/THREAT_MODEL.md` §6:
 
-1. **The GenVM runtime's behaviour on validator disagreement is unproven.** This
-   is the finding, not a caveat. glsim with a documented harness shim shows a
-   split producing `UNDETERMINED`, but glsim is not the runtime.
-2. **No live model was ever consulted.** Every test substitutes a fixed reply.
+1. **Real consensus is observed on one live run, not established as reliable.**
+   39/39 transactions finalized `MAJORITY_AGREE`, including a three-round judge.
+   glsim still drives a split to `UNDETERMINED`; one run is not a reliability claim.
+2. **A live model was consulted five times, not measured.** All five rulings
+   matched expectations and cited a real clause; an earlier overlapping covenant
+   split validators. Generalization is unmeasured.
 3. **`max_rotations=1` everywhere.** Leader rotation under real failure is
    untested, and is the mechanism that would resolve (1).
 4. **The excerpt check proves a clause is real, not that it applies.** Irreducible

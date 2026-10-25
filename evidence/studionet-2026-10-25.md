@@ -1,11 +1,11 @@
-# Studionet run — 2026-10-24
+# Studionet run — 2026-10-25
 
 Amended deployment and full demonstration of Covenant. Every transaction below
 reached `FINALIZED` with consensus result `MAJORITY_AGREE`; the five enforcement
 outcomes matched expectations exactly. This is the run to cite for the
-evidence-provenance claim.
+evidence-provenance claim and the cancellation-authority fix.
 
-Raw data: [`live-run.json`](live-run.json) — 39 transactions, 37 reads.
+Raw data: [`live-run.json`](live-run.json) — 42 transactions, 39 reads.
 Historical pre-amendment run: [`studionet-2026-10-20.md`](studionet-2026-10-20.md)
 and [`live-run-2026-10-20.json`](live-run-2026-10-20.json).
 
@@ -23,12 +23,18 @@ and [`live-run-2026-10-20.json`](live-run-2026-10-20.json).
 
 | Contract | Address |
 |---|---|
-| `covenant_guard` | `0xaBe274C9429F025419cAf7C00c007c4c6B3af24e` |
-| `treasury_vault` | `0x56d62A2526D5d5f3DA5C3c51790fac43D9414D4d` |
+| `covenant_guard` | `0x20E0090e6bC50bd237FAF0df57159c565c554df5` |
+| `treasury_vault` | `0xCf542C78302Dd3B39Cef0aE6C0B5e07FE790F536` |
+
+Source commit: `84d6b15b24d8…` (guard sha256
+`9289a0add03a4a7d53950a91dce053696b437024f9c243d45946c8a9aff677df`). The
+`covenant_guard` deployed here includes the governance-set and cancellation
+authority fix.
 
 Constructor: covenant from `examples/covenant.md`, quorum `2`, timelock `60`s,
-procurement attestor `0x9494488e…`, risk attestor `0xe4634c36…`, signers
-`0x158e5cca…` and `0x3e20ab25…`.
+procurement attestor `0x9494488e…`, risk attestor `0xe4634c36…`, governance
+set `0x158e5cca…` (owner), `0x3893263b…` (signer_a), `0x3e20ab25…`
+(signer_b).
 
 Covenant v1 hash:
 `fea742a0c51497a7288181070698f403f162a89fb8c16d53688bb4a0c2bf9b5e`.
@@ -49,6 +55,22 @@ not the external document. Claims expire after 30 days and are keyed by subject.
 
 The requester only proposed operations: it never supplied a vendor status, risk
 status, source URI, source digest, or approval list.
+
+## Cancellation authority
+
+The live run also exercised the authority fix. A cancellable operation was
+proposed by the owner, an outsider (the procurement attestor) attempted to
+cancel it, and the owner then cancelled it:
+
+| Step | Sender | Result | State after |
+|---|---|---|---|
+| propose `cancel-auth` | owner | SUCCESS | `PROPOSED` |
+| outsider `cancel_operation` | procurement attestor | leader `ERROR` | `PROPOSED` |
+| owner `cancel_operation` | owner | SUCCESS | `CANCELLED` |
+
+The outsider transaction finalized with `MAJORITY_AGREE` but its contract
+execution failed as intended; no state changed. The owner's call returned the
+serialized cancelled record, and `get_operation_status` read back `CANCELLED`.
 
 ## Enforcement results
 
@@ -74,7 +96,7 @@ Rulings:
   `Payments of 250000 GEN or less to an approved vendor are permitted.`
 
 `op-signed` carries `approval_count: 2` and signers
-`0x158e5cca…` and `0x3e20ab25…`; the approval is bound to the exact operation
+`0x3893263b…` and `0x3e20ab25…`; the approval is bound to the exact operation
 binding. The payment is independently permitted under clause 2 because it is
 below the threshold. The above-threshold approval-required path is covered
 deterministically by `tests/direct/test_evidence_provenance.py` and
@@ -116,10 +138,13 @@ remains `REQUESTED` while the guard state is `REJECTED`.
 
 ## Consensus
 
-39/39 transactions were `FINALIZED` with `MAJORITY_AGREE`; 38 settled in one
-round, and the `op-big` judge settled in three. The guard's four granular states
-are `FINALIZED`, `REJECTED`, `UNDETERMINED`, and `RULED`; no transaction here
-ended `UNDETERMINED`.
+42/42 transactions were `FINALIZED` with `MAJORITY_AGREE`; 38 settled in one
+round, and four judges (`op-small`, `op-big`, `op-prohibited`, `op-after`) took
+two. Three transactions have leader execution `ERROR` because the contract
+deliberately refused them: the outsider cancellation, `op-big` execution, and
+`op-prohibited` execution. The guard's four granular states are `FINALIZED`,
+`REJECTED`, `UNDETERMINED`, and `RULED`; no transaction here ended
+`UNDETERMINED`.
 
 ## A policy-wording finding, kept honestly
 

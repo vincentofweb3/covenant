@@ -45,7 +45,7 @@ part of the primitive and can be deleted without affecting it.
 ### `CovenantGuard`
 
 ```
-owner                 Address
+owner                 Address              covenant owner; amendment approver and cancellation fallback
 procurement_attestor  Address              fixed at deploy; writes VENDOR_APPROVAL
 risk_attestor         Address              fixed at deploy; writes RISK_STATUS
 signer_a, signer_b    Address              fixed at deploy; approve one binding
@@ -53,7 +53,7 @@ covenant_text         str                  active covenant, exact bytes
 covenant_hash         str                  sha256 over (HASH_VERSION, "covenant", text)
 covenant_version      u32
 covenant_history      DynArray[str]        {version, hash} and {version, hash, superseded_by}
-quorum                u32                  >= 2
+quorum                u32                  in [2, 3]; the governance set is owner + signer_a + signer_b
 timelock_seconds      u32                  in [60, 604800]
 
 operations            TreeMap[str, str]   operation_id -> canonical JSON
@@ -138,10 +138,14 @@ distinguishable afterwards via `ruling.reason_code` and `ruling.model_failure`.
         old version SUPERSEDED
 ```
 
-The timelock is a **minimum wait, not a deadline**. Refusing a properly-approved
-change because nobody activated it would hand a veto to anyone who can simply
-not call the method. `EXPIRED` exists for staleness, which is a real condition
-with a real consequence.
+Only the configured governance set (owner, signer_a, signer_b) may approve an
+amendment; quorum may not exceed that set. The timelock is a **minimum wait, not
+a deadline**. Refusing a properly-approved change because nobody activated it
+would hand a veto to anyone who can simply not call the method. `EXPIRED` exists
+for staleness, which is a real condition with a real consequence.
+
+`cancel_operation` is restricted to the operation proposer or the covenant
+owner, and returns the serialized cancelled record.
 
 ### Payment (vault)
 

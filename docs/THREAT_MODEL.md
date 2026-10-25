@@ -64,10 +64,12 @@ the guard's copy must carry the vault's own binding and evidence subject/digest.
 **The threat.** An attacker with one key proposes a covenant that permits
 something, and uses it to release funds the guard is currently blocking.
 
-**Control.** Amendments need a quorum of **distinct** approvers plus an elapsed
-timelock. `approve_amendment` compares addresses case-normalised and refuses to
-count the same approver twice. Activation is permissionless, so an approved
-amendment cannot be stuck by the owner refusing to act.
+**Control.** Amendments need a quorum of **distinct** approvers from the
+configured governance set (owner, signer_a, signer_b) plus an elapsed timelock.
+`approve_amendment` rejects any address outside that set, compares addresses
+case-normalised, and refuses to count the same approver twice. Quorum may not
+exceed the set. Activation is permissionless, so an approved amendment cannot be
+stuck by the owner refusing to act.
 
 ### 2.5 A stale amendment silently clobbering a newer one
 
@@ -182,6 +184,16 @@ vault.
 as three separate facts. On glsim this is not even a theoretical concern — see
 §4.
 
+### 2.13 Unauthorized cancellation
+
+**The threat.** A stranger cancels a pending operation or payment to grief the
+proposer or to suppress a ruling.
+
+**Control.** `cancel_operation` accepts only the operation proposer or the
+covenant owner; `cancel_payment` accepts only the payment proposer or the vault
+owner. Both return the serialized cancelled record. A stranger's call fails
+without changing state.
+
 ## 3. Non-threats, stated so they are not quietly assumed
 
 - **Reentrancy / cross-function races.** Out of scope. The pinned std lib offers
@@ -230,8 +242,8 @@ transaction cannot write state at all.
 
 ## 6. What this does not establish
 
-1. **Real consensus is observed only on one live run.** 39/39 transactions
-   finalized with `MAJORITY_AGREE`, including a judge that needed three rounds.
+1. **Real consensus is observed only on one live run.** 42/42 transactions
+   finalized with `MAJORITY_AGREE`, including four judges that needed two rounds.
    That establishes the runtime worked here; it is not a reliability claim.
    glsim with the capture shim still shows a split producing `UNDETERMINED`.
 2. **A live model was consulted five times, not measured.** All five rulings

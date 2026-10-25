@@ -71,8 +71,10 @@ COVENANT_FILE = REPO_ROOT / "examples" / "covenant.md"
 GUARD_FILE = REPO_ROOT / "contracts" / "covenant_guard.py"
 VAULT_FILE = REPO_ROOT / "contracts" / "treasury_vault.py"
 
-# Second approver. Any distinct address counts toward quorum, and because gas is
-# free an unfunded account can still approve.
+# Two approvers, both distinct from the owner and the evidence roles. Gover-
+# nance and payment approvals are restricted to configured addresses; gas is
+# free, so unfunded accounts can still approve.
+FIRST_APPROVER_KEY = "0x" + ("79" * 32)
 SECOND_APPROVER_KEY = "0x" + ("7a" * 32)
 
 
@@ -256,15 +258,17 @@ def main() -> int:
 	covenant = COVENANT_FILE.read_text(encoding="utf-8")
 	procurement_account = create_account(PROCUREMENT_KEY)
 	risk_account = create_account(RISK_KEY)
+	signer_a_account = create_account(FIRST_APPROVER_KEY)
 	signer_b_account = create_account(SECOND_APPROVER_KEY)
 	procurement = to_checksum_address(procurement_account.address)
 	risk = to_checksum_address(risk_account.address)
+	signer_a = to_checksum_address(signer_a_account.address)
 	signer_b = to_checksum_address(signer_b_account.address)
 
 	print("DEPLOY")
 	guard, _ = live.deploy(
 		GUARD_FILE,
-		[covenant, QUORUM, TIMELOCK_SECONDS, procurement, risk, deployer, signer_b],
+		[covenant, QUORUM, TIMELOCK_SECONDS, procurement, risk, signer_a, signer_b],
 	)
 	print(f"  guard                                      {guard}")
 	vault, _ = live.deploy(VAULT_FILE, [guard, deployer])
@@ -343,6 +347,36 @@ def main() -> int:
 	live.read(guard, "get_vendor_claim", [PROHIBITED_VENDOR], "claim: removed vendor")
 	print()
 
+	print("CANCELLATION AUTHORITY")
+	live.write(
+		guard,
+		"propose_operation",
+		[
+			"cancel-auth-propose",
+			"cancel-auth",
+			'{"amount":1,"memo":"cancellation authority probe"}',
+			deployer,
+		],
+		"propose cancellable operation",
+	)
+	live.write(
+		guard,
+		"cancel_operation",
+		["cancel-auth-outsider", "cancel-auth"],
+		"outsider cancel (expect failure)",
+		account=procurement_account,
+	)
+	live.read(guard, "get_operation_status", ["cancel-auth"], "state after outsider cancel")
+	live.write(
+		guard,
+		"cancel_operation",
+		["cancel-auth-owner", "cancel-auth"],
+		"owner cancel",
+		account=deployer_account,
+	)
+	live.read(guard, "get_operation_status", ["cancel-auth"], "state after owner cancel")
+	print()
+
 	print("ENFORCEMENT")
 	live.read(guard, "get_covenant_version", [], "covenant version (expect 1)")
 	live.read(vault, "get_payment_count", [], "payments so far")
@@ -393,7 +427,7 @@ def main() -> int:
 		)
 		live.drain_children(receipt, f"request_payment({op_id})")
 
-		signers = [deployer_account, signer_b_account]
+		signers = [signer_a_account, signer_b_account]
 		for index in range(approvals):
 			live.write(
 				guard,
@@ -521,7 +555,7 @@ def main() -> int:
 			"timelock_seconds": TIMELOCK_SECONDS,
 			"procurement_attestor": procurement,
 			"risk_attestor": risk,
-			"signer_a": deployer,
+			"signer_a": signer_a,
 			"signer_b": signer_b,
 		},
 		"evidence": {

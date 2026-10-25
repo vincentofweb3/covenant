@@ -51,7 +51,9 @@ Three rules follow, and they are the real content of the contract:
   validator disagreement produce *no permission* either — and are recorded
   distinctly from a ruling of `VIOLATED`.
 - **The guard cannot be rewritten by whoever it is guarding.** Covenant
-  amendments need a quorum of distinct approvers plus a timelock.
+  amendments need a quorum of distinct approvers from the configured governance
+  set (owner plus the two signers) and a timelock; arbitrary addresses cannot
+  approve. Cancellation is limited to the proposer or the relevant owner.
 - **The requester cannot supply the facts.** `propose_operation` takes the
   instruction and the subject, never evidence text. Vendor and risk claims are
   role-gated, subject-keyed, expiring records; approvals are bound to one exact
@@ -71,8 +73,8 @@ check proved the policy clause existed; it did not verify the fact. See
 contracts/covenant_guard.py    the primitive. 28 methods.
 contracts/treasury_vault.py    a worked example that proves the guard is load-bearing.
 
-tests/direct/                  190 tests. State machine, judge seam, evidence provenance.
-tests/integration/             29 tests. Cross-contract lifecycle and consensus, on glsim.
+tests/direct/                  193 tests. State machine, judge seam, evidence provenance.
+tests/integration/             30 tests. Cross-contract lifecycle and consensus, on glsim.
 probe/                         20 tests. Behavioural probes that reject invented SDK APIs.
 
 scripts/preflight.py           architectural invariants + secret scan. Runs in CI.
@@ -107,10 +109,10 @@ $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/treasury_vault.py
   Methods: 11 (7 view, 4 write)
 
 $ python3 -m pytest tests/direct -q
-190 passed
+193 passed
 
 $ python3 -m pytest tests/integration -q
-29 passed
+30 passed
 ```
 
 `GENVM_VERSION=v0.3.0-rc7` is **required** for the `genvm-lint check` commands.
@@ -141,10 +143,10 @@ The amended contracts are deployed and the full demonstration passed.
 
 | Contract | Address |
 |---|---|
-| `covenant_guard` | `0xaBe274C9429F025419cAf7C00c007c4c6B3af24e` |
-| `treasury_vault` | `0x56d62A2526D5d5f3DA5C3c51790fac43D9414D4d` |
+| `covenant_guard` | `0x20E0090e6bC50bd237FAF0df57159c565c554df5` |
+| `treasury_vault` | `0xCf542C78302Dd3B39Cef0aE6C0B5e07FE790F536` |
 
-39 transactions, all `FINALIZED` with `MAJORITY_AGREE`, 5 validators, 1–3 rounds.
+42 transactions, all `FINALIZED` with `MAJORITY_AGREE`, 5 validators, 1–2 rounds.
 Every fact came from role-gated on-chain claims; the requester supplied only the
 instruction and subject.
 
@@ -157,11 +159,13 @@ instruction and subject.
 | `op-after` | 120,000 | ALLOWED | FINALIZED | −120,000 |
 
 `op-signed` carries two distinct signer approvals bound to the exact operation.
-`op-big` was refused under covenant v1; the covenant was then amended by quorum +
-timelock, and the same payment executed under v2. Balances reconcile exactly:
+An outsider cancellation was refused (`PROPOSED` remained), while the owner's
+cancellation returned the serialized `CANCELLED` record. `op-big` was refused
+under covenant v1; the covenant was then amended by quorum + timelock, and the
+same payment executed under v2. Balances reconcile exactly:
 `1,000,000 − 900 − 900 − 120,000 = 878,200`.
 
-Evidence: [`evidence/studionet-2026-10-24.md`](evidence/studionet-2026-10-24.md)
+Evidence: [`evidence/studionet-2026-10-25.md`](evidence/studionet-2026-10-25.md)
 and [`evidence/live-run.json`](evidence/live-run.json).
 Reproduce: `python3 scripts/live_demo.py`.
 
@@ -207,8 +211,8 @@ and digest that the guard stored on the operation.
 
 These are not hedges. They are the claims this project does **not** make.
 
-1. **Real consensus is observed only on one live run.** 39/39 transactions
-   finalized with `MAJORITY_AGREE`, including a judge that needed three rounds.
+1. **Real consensus is observed only on one live run.** 42/42 transactions
+   finalized with `MAJORITY_AGREE`, including four judges that needed two rounds.
    That is evidence the runtime worked here, not a reliability claim. glsim still
    drives a split to `UNDETERMINED` in `tests/integration/test_consensus.py`.
 2. **A live model was consulted five times, not measured.** All five rulings

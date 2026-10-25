@@ -102,8 +102,8 @@ in force, and that the guard cannot be edited by whoever it is blocking.
 
 ## Main risks
 
-1. **Real consensus is observed only on one live run.** 39/39 transactions
-   finalized with `MAJORITY_AGREE`; one judge needed three rounds. That is not a
+1. **Real consensus is observed only on one live run.** 42/42 transactions
+   finalized with `MAJORITY_AGREE`; four judges needed two rounds. That is not a
    reliability claim. glsim still drives a split to `UNDETERMINED`.
 2. **The excerpt check proves a clause is real, not that it applies.** A model can
    cite a genuine clause that does not support the operation. Irreducible here.
@@ -125,6 +125,6 @@ re-scope if the live network cannot produce a reliable three-way agreement — a
 that point the honest deliverable is the primitive plus its tests, not a demo.
 
 **Gate status:** construction, the amended deployment, and the full live
-demonstration passed. 39/39 transactions finalized with `MAJORITY_AGREE`; all
+demonstration passed. 42/42 transactions finalized with `MAJORITY_AGREE`; all
 five enforcement outcomes matched. The live run is evidence for this
 demonstration, not for consensus reliability.

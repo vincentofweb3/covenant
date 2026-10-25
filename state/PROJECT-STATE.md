@@ -3,7 +3,7 @@
 ## Current status
 
 **Evidence-provenance amendment implemented, deployed, and demonstrated live.
-190 direct + 29 integration + 20 probe tests green. 39/39 live transactions
+193 direct + 30 integration + 20 probe tests green. 42/42 live transactions
 finalized with `MAJORITY_AGREE`; all five enforcement outcomes matched.**
 
 The original submission was rejected because the treasury authorization could
@@ -22,23 +22,23 @@ signer approvals, evidence-bound rulings, and the v1 → v2 amendment.
 
 | File | Lines | Purpose |
 |---|---|---|
-| `contracts/covenant_guard.py` | 1436 | the primitive: covenant store, operation lifecycle, judge seam, evidence registry, amendment flow. 28 methods |
-| `contracts/treasury_vault.py` | 416 | worked example; proves the guard is load-bearing. 11 methods |
-| `tests/direct/test_covenant_guard.py` | 475 | judge seam, adversarial cases, state machine |
+| `contracts/covenant_guard.py` | 1463 | the primitive: covenant store, operation lifecycle, judge seam, evidence registry, amendment flow. 28 methods |
+| `contracts/treasury_vault.py` | 426 | worked example; proves the guard is load-bearing. 11 methods |
+| `tests/direct/test_covenant_guard.py` | 506 | judge seam, adversarial cases, state machine |
 | `tests/direct/test_adversarial.py` | 232 | boundaries around the seam: injection, case, capture, laundering |
-| `tests/direct/test_amendment_flow.py` | 295 | quorum, timelock, staleness, version history |
+| `tests/direct/test_amendment_flow.py` | 316 | quorum, timelock, staleness, version history |
 | `tests/direct/test_evidence_provenance.py` | 284 | role-gated claims, expiry, approvals, evidence binding |
 | `tests/direct/test_covctl.py` | 459 | the linter, and that its digest equals the contract's |
 | `tests/direct/conftest.py` | 143 | fixtures, attestations, `set_clock`, SDK pin |
-| `tests/integration/test_lifecycle.py` | 443 | **the refusal proof** + evidence provenance |
+| `tests/integration/test_lifecycle.py` | 466 | **the refusal proof** + evidence provenance |
 | `tests/integration/test_consensus.py` | 236 | real validator voting, via a documented harness shim |
 | `tests/integration/conftest.py` | 569 | glsim harness, typed calldata, simulated clock, validator capture |
 | `scripts/covctl.py` | 420 | covenant compiler + policy linter + digest + citation checker |
-| `scripts/preflight.py` | 230 | 265 architectural invariants + secret scan |
-| `scripts/live_demo.py` | 561 | live deploy + attestations/approvals + demonstration, retries transient network errors, evidence to JSON |
+| `scripts/preflight.py` | 272 | 337 architectural invariants + secret scan |
+| `scripts/live_demo.py` | 595 | live deploy + attestations/approvals + demonstration, retries transient network errors, evidence to JSON |
 | `docs/THREAT_MODEL.md` | — | threats → controls, explicit non-goals, what is not established |
 | `docs/CONSENSUS.md` | — | the leader/validator protocol, precisely |
-| `docs/ARCHITECTURE.md` | 202 | state, machines, message sequence, trust boundaries |
+| `docs/ARCHITECTURE.md` | 254 | state, machines, message sequence, trust boundaries |
 | `docs/BRIEF.md` | — | problem, decision, smallest live slice, go/no-go gate |
 | `state/REVIEW_ROUND1.md` | 198 | guard audit — 3 refuted findings kept |
 | `state/REVIEW_ROUND2.md` | 155 | vault audit — 2 refuted findings kept |
@@ -50,7 +50,7 @@ signer approvals, evidence-bound rulings, and the v1 → v2 amendment.
 ```console
 $ python3 -m compileall -q contracts scripts tests
 $ python3 scripts/preflight.py
-✓ Preflight passed (329 checks, 58 files scanned)
+✓ Preflight passed (337 checks, 58 files scanned)
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/covenant_guard.py
 ✓ Validation passed
@@ -61,14 +61,32 @@ $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/treasury_vault.py
   Methods: 11 (7 view, 4 write)
 
 $ python3 -m pytest tests/direct
-190 passed
+193 passed
 
 $ python3 -m pytest tests/integration
-29 passed
+30 passed
 
 $ python3 -m pytest probe/
 20 passed
 ```
+
+## Steward findings and fixes
+
+The review after the first resubmission found three concrete issues, all fixed
+and covered by regression tests:
+
+1. **Arbitrary amendment approvers.** `approve_amendment` now accepts only the
+   configured governance set (`owner`, `signer_a`, `signer_b`), and construction
+   rejects a quorum larger than that set.
+2. **Unauthorized cancellation.** `cancel_operation` accepts only the operation
+   proposer or the covenant owner; `cancel_payment` accepts only the payment
+   proposer or the vault owner.
+3. **Missing serialized cancellation result.** `cancel_operation` now returns the
+   canonical cancelled record explicitly; a live outsider attempt left the
+   operation `PROPOSED`, and the owner's call returned `CANCELLED`.
+
+The live run exercises the guard-side cancellation path; the vault-side path is
+covered by `tests/integration/test_lifecycle.py`.
 
 ## Defects found and fixed
 
@@ -124,7 +142,7 @@ ones.
 Carried forward from `state/REVIEW_ROUND3.md` §5 and `docs/THREAT_MODEL.md` §6:
 
 1. **Real consensus is observed on one live run, not established as reliable.**
-   39/39 transactions finalized `MAJORITY_AGREE`, including a three-round judge.
+   42/42 transactions finalized `MAJORITY_AGREE`; four judges needed two rounds.
    glsim still drives a split to `UNDETERMINED`; one run is not a reliability claim.
 2. **A live model was consulted five times, not measured.** All five rulings
    matched expectations and cited a real clause; an earlier overlapping covenant
@@ -165,17 +183,17 @@ the claim is true. Attestor keys are immutable, with no rotation/revocation.
 Evidence is a ruling-time snapshot; expiry is not re-checked at execution. See
 `docs/THREAT_MODEL.md` §2.6–2.8 and §6.
 
-## LIVE — amended run on studionet (2026-10-24)
+## LIVE — authority-fix run on studionet (2026-10-25)
 
 The amended contracts deployed successfully with the zero-balance key, then ran
 the full attestation → request → approvals → ruling → execution path.
 
 | | |
 |---|---|
-| `covenant_guard` | `0xaBe274C9429F025419cAf7C00c007c4c6B3af24e` |
-| `treasury_vault` | `0x56d62A2526D5d5f3DA5C3c51790fac43D9414D4d` |
-| Transactions | 39, all `FINALIZED` / `MAJORITY_AGREE`, 5 validators |
-| Rounds observed | 38 at 1 round; the `op-big` judge at 3 |
+| `covenant_guard` | `0x20E0090e6bC50bd237FAF0df57159c565c554df5` |
+| `treasury_vault` | `0xCf542C78302Dd3B39Cef0aE6C0B5e07FE790F536` |
+| Transactions | 42, all `FINALIZED` / `MAJORITY_AGREE`, 5 validators |
+| Rounds observed | 38 at 1 round; four judges at 2 |
 | Covenant v1 | `fea742a0c51497a7288181070698f403f162a89fb8c16d53688bb4a0c2bf9b5e` |
 | Covenant v2 | `9aec91476aa33aa414cc355313addd23b17a871ba24e8ab42cec570e8d433275` |
 
@@ -190,13 +208,15 @@ All five enforcement expectations held:
 | `op-after` | 120,000 | ALLOWED | FINALIZED | −120,000 |
 
 `op-signed` has two distinct signer approvals bound to the operation; it is
-permitted independently because it is below the threshold. `op-big` and
+permitted independently because it is below the threshold. An outsider could not
+cancel a pending operation, while the owner could; `cancel_operation` returned
+the serialized `CANCELLED` record. `op-big` and
 `op-after` are the same payment, split by the quorum + timelock amendment; it
 flipped from refused to executed. Balances reconcile exactly:
 `1,000,000 − 900 − 900 − 120,000 = 878,200` (`get_totals` returned the same
 values).
 
-Evidence: `evidence/studionet-2026-10-24.md` and `evidence/live-run.json`.
+Evidence: `evidence/studionet-2026-10-25.md` and `evidence/live-run.json`.
 Historical pre-amendment run: `evidence/studionet-2026-10-20.md` and
 `evidence/live-run-2026-10-20.json`.
 

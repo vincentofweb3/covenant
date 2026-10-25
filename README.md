@@ -160,13 +160,15 @@ instruction and subject.
 
 `op-signed` carries two distinct signer approvals bound to the exact operation.
 An outsider cancellation was refused (`PROPOSED` remained), while the owner's
-cancellation returned the serialized `CANCELLED` record. `op-big` was refused
-under covenant v1; the covenant was then amended by quorum + timelock, and the
-same payment executed under v2. Balances reconcile exactly:
+cancellation returned the serialized `CANCELLED` record; a separate live probe
+showed an outsider amendment approval rolled back and left `approvers: []`.
+`op-big` was refused under covenant v1; the covenant was then amended by quorum
+and timelock, and the same payment executed under v2. Balances reconcile exactly:
 `1,000,000 − 900 − 900 − 120,000 = 878,200`.
 
-Evidence: [`evidence/studionet-2026-10-25.md`](evidence/studionet-2026-10-25.md)
-and [`evidence/live-run.json`](evidence/live-run.json).
+Evidence: [`evidence/studionet-2026-10-25.md`](evidence/studionet-2026-10-25.md),
+[`evidence/live-run.json`](evidence/live-run.json), and
+[`evidence/amendment-authority-live.json`](evidence/amendment-authority-live.json).
 Reproduce: `python3 scripts/live_demo.py`.
 
 ---

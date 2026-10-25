@@ -1,0 +1,12 @@
+{
+ "guard": "0x20E0090e6bC50bd237FAF0df57159c565c554df5",
+ "proposal_tx": "0x7d9a0d8c280c2ef2fddf271f2771f5e1067cfa8803b2d08d2fa54bc272d54795",
+ "outsider_tx": "0x6e3bd742f453c0174900af13f60ea4ccc8a93ee7d82a8e8d0dde26141d467149",
+ "outsider_sender": "0x9494488e0f29C3D705439EEA285530aaabf01e69",
+ "outsider_execution": "ERROR",
+ "outsider_payload": "EXPECTED: only a configured governance approver may approve an amendment",
+ "status_before": "DRAFT",
+ "status_after": "DRAFT",
+ "approvers_before": [],
+ "approvers_after": []
+}

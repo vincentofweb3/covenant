@@ -6,6 +6,9 @@ outcomes matched expectations exactly. This is the run to cite for the
 evidence-provenance claim and the cancellation-authority fix.
 
 Raw data: [`live-run.json`](live-run.json) — 42 transactions, 39 reads.
+Supplementary amendment-authority probe:
+[`amendment-authority-live.json`](amendment-authority-live.json) — 2 transactions,
+4 reads.
 Historical pre-amendment run: [`studionet-2026-10-20.md`](studionet-2026-10-20.md)
 and [`live-run-2026-10-20.json`](live-run-2026-10-20.json).
 
@@ -62,15 +65,35 @@ The live run also exercised the authority fix. A cancellable operation was
 proposed by the owner, an outsider (the procurement attestor) attempted to
 cancel it, and the owner then cancelled it:
 
-| Step | Sender | Result | State after |
-|---|---|---|---|
-| propose `cancel-auth` | owner | SUCCESS | `PROPOSED` |
-| outsider `cancel_operation` | procurement attestor | leader `ERROR` | `PROPOSED` |
-| owner `cancel_operation` | owner | SUCCESS | `CANCELLED` |
+| Step | Sender | Transaction | Result | State after |
+|---|---|---|---|---|
+| propose `cancel-auth` | owner | `0x178619bf…` | SUCCESS | `PROPOSED` |
+| outsider `cancel_operation` | procurement attestor | `0x9c451380…` | leader `ERROR` | `PROPOSED` |
+| owner `cancel_operation` | owner | `0x0622196b…` | SUCCESS | `CANCELLED` |
 
-The outsider transaction finalized with `MAJORITY_AGREE` but its contract
-execution failed as intended; no state changed. The owner's call returned the
-serialized cancelled record, and `get_operation_status` read back `CANCELLED`.
+The outsider transaction finalized with `MAJORITY_AGREE`, but the leader
+execution rolled back with
+`EXPECTED: only the proposer or covenant owner may cancel an operation`; no
+state changed. Full hashes are in `live-run.json`. The owner's call returned a
+serialized record whose `state` is
+`CANCELLED` (operation `cancel-auth`, proposer
+`0x158e5cca…`), and `get_operation_status` read back `CANCELLED`.
+
+## Amendment authority
+
+A second probe against the same deployed guard checks the other half of the
+steward finding. The owner proposed an amendment; the procurement attestor—an
+address outside the governance set—tried to approve it:
+
+| Step | Sender | Transaction | Result | Status after |
+|---|---|---|---|---|
+| propose `live-auth-amendment` | owner | `0x7d9a0d8c…` | SUCCESS | `DRAFT` |
+| outsider `approve_amendment` | procurement attestor | `0x6e3bd742…` | leader `ERROR` | `DRAFT` |
+
+The probe file records the full transaction hashes. The outsider call rolled
+back with
+`EXPECTED: only a configured governance approver may approve an amendment`;
+the amendment remained `DRAFT` with `approvers: []` before and after.
 
 ## Enforcement results
 
@@ -144,7 +167,8 @@ two. Three transactions have leader execution `ERROR` because the contract
 deliberately refused them: the outsider cancellation, `op-big` execution, and
 `op-prohibited` execution. The guard's four granular states are `FINALIZED`,
 `REJECTED`, `UNDETERMINED`, and `RULED`; no transaction here ended
-`UNDETERMINED`.
+`UNDETERMINED`. The supplementary amendment probe added 2/2 transactions
+`FINALIZED` with `MAJORITY_AGREE` in one round.
 
 ## A policy-wording finding, kept honestly
 

@@ -50,7 +50,7 @@ SECRET_PATTERNS = {
 # Lines that name a hash rather than hold a key. A private key is 32 bytes and so
 # is a transaction hash; only the field name tells them apart.
 HASH_CONTEXT = re.compile(
-    r'"(tx_id|hash|transaction_hash|ruling_digest|input_digest|binding_digest|'
+    r'"(tx_id|proposal_tx|outsider_tx|hash|transaction_hash|ruling_digest|input_digest|binding_digest|'
     r'covenant_hash|validator_votes_hash|raw_error)"\s*:'
     r"|^\s*[A-Z_]*(HASH|DIGEST|TX_ID)[A-Z_]*\s*="
 )

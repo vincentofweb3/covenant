@@ -153,10 +153,10 @@
     }
   ],
   "provenance": {
-    "commit": "78c2fc9dcb89d86be6db72de3396944f09596c6e",
+    "commit": "84d6b15b24d86ec07c7b07545f1fa09c95499193",
     "generated_by": "scripts/gen_fixture.py",
     "path": "contracts/covenant_guard.py",
     "repository": "https://github.com/vincentofweb3/covenant",
-    "sha256": "1f93c70522abe1252d2f9ab835c1bbf4460549a67c411c1433da1c083e8e9e1b"
+    "sha256": "9289a0add03a4a7d53950a91dce053696b437024f9c243d45946c8a9aff677df"
   }
 }

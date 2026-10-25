@@ -486,6 +486,9 @@ class CovenantGuard(gl.Contract):
 		roles = (procurement, risk, first_signer, second_signer)
 		if len(set(roles)) != len(roles):
 			_fail("evidence roles must be held by four distinct addresses")
+		owner_text = _address_text(self.owner)
+		if owner_text in roles:
+			_fail("the covenant owner must be distinct from the evidence roles")
 		self.procurement_attestor = Address(procurement)
 		self.risk_attestor = Address(risk)
 		self.signer_a = Address(first_signer)
@@ -495,6 +498,8 @@ class CovenantGuard(gl.Contract):
 		needed = int(quorum)
 		if needed < MIN_QUORUM:
 			_fail("quorum must be at least " + str(MIN_QUORUM))
+		if needed > 3:
+			_fail("quorum exceeds the configured governance set (owner + two signers)")
 		delay = int(timelock_seconds)
 		if delay < MIN_TIMELOCK_SECONDS or delay > MAX_TIMELOCK_SECONDS:
 			_fail(
@@ -621,6 +626,7 @@ class CovenantGuard(gl.Contract):
 				"timelock_seconds": int(self.timelock_seconds),
 				"version": int(self.covenant_version),
 				"covenant_hash": self.covenant_hash,
+				"governance": self._governance_addresses(),
 			}
 		)
 
@@ -1059,6 +1065,7 @@ class CovenantGuard(gl.Contract):
 			"state": STATE_PROPOSED,
 			"summary": text,
 			"subject": subject_text,
+			"proposer": _sender(),
 			"binding_digest": _digest("binding", [text]),
 			"covenant_hash": self.covenant_hash,
 			"input_digest": _digest(
@@ -1280,6 +1287,19 @@ class CovenantGuard(gl.Contract):
 
 	# --- amendments -------------------------------------------------------
 
+	def _governance_addresses(self) -> list:
+		"""The fixed set allowed to approve covenant changes.
+
+		Amendments are governance actions, not evidence actions: only the owner
+		and the two configured payment signers may approve. Keeping this set
+		explicit is what stops an arbitrary address from manufacturing quorum.
+		"""
+		return [
+			_address_text(self.owner),
+			_address_text(self.signer_a),
+			_address_text(self.signer_b),
+		]
+
 	@gl.public.write
 	def propose_amendment(self, action_id: str, amendment_id: str, new_covenant: str) -> str:
 		"""Owner-only. Open a change to the covenant text.
@@ -1339,6 +1359,8 @@ class CovenantGuard(gl.Contract):
 			_fail("amendment is no longer approvable")
 
 		approver = _sender()
+		if approver not in self._governance_addresses():
+			_fail("only a configured governance approver may approve an amendment")
 		approvers = list(record.get("approvers", []))
 		if approver in approvers:
 			# Distinctness is the whole point of a quorum. Re-approving is a
@@ -1429,9 +1451,14 @@ class CovenantGuard(gl.Contract):
 		if record.get("state") != STATE_PROPOSED:
 			_fail("only an unruled operation can be cancelled")
 
+		if _sender() != str(record.get("proposer", "")) and _sender() != _address_text(
+			self.owner
+		):
+			_fail("only the proposer or covenant owner may cancel an operation")
+
 		record["state"] = STATE_CANCELLED
 		record["cancelled_at"] = int(_now())
-		encoded = _canonical(record)
-		self.operations[op_id] = encoded
-		self._record_action(action_id, digest, encoded)
-		return encoded
+		result = _canonical(record)
+		self.operations[op_id] = result
+		self._record_action(action_id, digest, result)
+		return result

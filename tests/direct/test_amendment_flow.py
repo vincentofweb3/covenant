@@ -23,6 +23,12 @@ def _governance(guard):
 	return json.loads(guard.get_governance())
 
 
+def _governance_signer(guard, index):
+	from genlayer.py.types import Address
+
+	return Address(_governance(guard)["governance"][index])
+
+
 # --- construction validation --------------------------------------------
 
 @pytest.mark.parametrize(
@@ -44,6 +50,8 @@ def test_governance_is_readable(guard):
 	assert governance["quorum"] == 2
 	assert governance["timelock_seconds"] == TIMELOCK_SECONDS
 	assert governance["version"] == 1
+	assert len(governance["governance"]) == 3
+	assert len(set(governance["governance"])) == 3
 
 
 # --- proposing -----------------------------------------------------------
@@ -82,7 +90,7 @@ def test_one_approval_is_not_a_quorum(guard, direct_vm):
 	from gltest.direct.loader import create_address
 
 	guard.propose_amendment("am-5", "a-q", COVENANT_V2)
-	direct_vm.sender = create_address("approver-1")
+	direct_vm.sender = _governance_signer(guard, 1)
 	guard.approve_amendment("am-6", "a-q")
 
 	amendment = _amendment(guard, "a-q")
@@ -97,7 +105,7 @@ def test_the_same_approver_cannot_vote_twice(guard, direct_vm):
 	from gltest.direct.loader import create_address
 
 	guard.propose_amendment("am-8", "a-dup-vote", COVENANT_V2)
-	direct_vm.sender = create_address("approver-1")
+	direct_vm.sender = _governance_signer(guard, 1)
 	guard.approve_amendment("am-9", "a-dup-vote")
 	guard.approve_amendment("am-10", "a-dup-vote")
 
@@ -106,13 +114,26 @@ def test_the_same_approver_cannot_vote_twice(guard, direct_vm):
 	assert amendment["state"] == "DRAFT"
 
 
+def test_an_arbitrary_address_cannot_approve_an_amendment(guard, direct_vm):
+	from gltest.direct.loader import create_address
+
+	guard.propose_amendment("am-x1", "a-outsider", COVENANT_V2)
+	direct_vm.sender = create_address("not-in-governance")
+	with pytest.raises(Exception):
+		guard.approve_amendment("am-x2", "a-outsider")
+
+	amendment = _amendment(guard, "a-outsider")
+	assert amendment.get("approval_count", 0) == 0
+	assert amendment["state"] == "DRAFT"
+
+
 def test_two_distinct_approvers_reach_quorum(guard, direct_vm):
 	from gltest.direct.loader import create_address
 
 	guard.propose_amendment("am-11", "a-quorum", COVENANT_V2)
-	direct_vm.sender = create_address("approver-1")
+	direct_vm.sender = _governance_signer(guard, 1)
 	guard.approve_amendment("am-12", "a-quorum")
-	direct_vm.sender = create_address("approver-2")
+	direct_vm.sender = _governance_signer(guard, 2)
 	guard.approve_amendment("am-13", "a-quorum")
 
 	amendment = _amendment(guard, "a-quorum")
@@ -128,7 +149,7 @@ def test_activation_is_refused_before_the_timelock_elapses(guard, direct_vm):
 
 	guard.propose_amendment("am-14", "a-tl", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-15-{index}", "a-tl")
 
 	set_clock("2026-01-01T00:30:00+00:00")  # 30 minutes in, timelock is 60
@@ -148,7 +169,7 @@ def test_an_elapsed_timelock_leaves_the_amendment_ready_not_expired(guard, direc
 
 	guard.propose_amendment("am-17", "a-ready", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-18-{index}", "a-ready")
 
 	set_clock("2026-01-02T00:00:00+00:00")  # a day later
@@ -170,7 +191,7 @@ def test_a_stale_amendment_cannot_clobber_the_current_covenant(guard, direct_vm)
 	guard.propose_amendment("am-s2", "a-second", COVENANT + "\nClause 5: no swaps at all.")
 
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-s3-{index}", "a-first")
 		guard.approve_amendment(f"am-s4-{index}", "a-second")
 
@@ -191,7 +212,7 @@ def test_activation_succeeds_once_the_timelock_elapses(guard, direct_vm):
 
 	guard.propose_amendment("am-20", "a-act", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-21-{index}", "a-act")
 
 	set_clock("2026-01-02T00:00:00+00:00")
@@ -208,7 +229,7 @@ def test_activation_is_permissionless(guard, direct_vm):
 
 	guard.propose_amendment("am-23", "a-perm", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-24-{index}", "a-perm")
 
 	set_clock("2026-01-02T00:00:00+00:00")
@@ -223,7 +244,7 @@ def test_double_activation_is_rejected(guard, direct_vm):
 
 	guard.propose_amendment("am-26", "a-twice", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-27-{index}", "a-twice")
 
 	set_clock("2026-01-02T00:00:00+00:00")
@@ -239,7 +260,7 @@ def test_every_version_that_was_in_force_is_retained(guard, direct_vm):
 
 	guard.propose_amendment("am-30", "a-hist", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-31-{index}", "a-hist")
 	set_clock("2026-01-02T00:00:00+00:00")
 	guard.activate_amendment("am-32", "a-hist")
@@ -274,7 +295,7 @@ def test_a_ruling_stays_bound_to_the_covenant_version_it_judged(guard, direct_vm
 
 	guard.propose_amendment("am-33", "a-audit", COVENANT_V2)
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = _governance_signer(guard, index)
 		guard.approve_amendment(f"am-34-{index}", "a-audit")
 	set_clock("2026-01-02T00:00:00+00:00")
 	guard.activate_amendment("am-35", "a-audit")

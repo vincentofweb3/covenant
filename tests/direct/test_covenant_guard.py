@@ -429,6 +429,37 @@ def test_cancel_only_applies_before_ruling(direct_vm, guard, allow):
 		guard.judge_operation("act-s16", "op-cancel")
 
 
+def test_only_the_proposer_or_owner_can_cancel_an_operation(guard, direct_vm):
+	from gltest.direct.loader import create_address
+
+	direct_vm.sender = create_address("operation-proposer")
+	guard.propose_operation("act-c1", "op-cancel-auth", "s", VENDOR_HEX)
+
+	direct_vm.sender = create_address("random-canceller")
+	with pytest.raises(Exception):
+		guard.cancel_operation("act-c2", "op-cancel-auth")
+	assert guard.get_operation_status("op-cancel-auth") == "PROPOSED"
+
+	direct_vm.sender = create_address("operation-proposer")
+	result = guard.cancel_operation("act-c3", "op-cancel-auth")
+	record = json.loads(result)
+	assert record["state"] == "CANCELLED"
+	assert result == guard.get_operation("op-cancel-auth")
+
+
+def test_the_owner_can_cancel_someone_elses_operation(guard, direct_vm):
+	from gltest.direct.loader import create_address
+	from genlayer.py.types import Address
+
+	direct_vm.sender = create_address("another-proposer")
+	guard.propose_operation("act-c4", "op-cancel-owner", "s", VENDOR_HEX)
+
+	owner = json.loads(guard.get_governance())["governance"][0]
+	direct_vm.sender = Address(owner)
+	result = guard.cancel_operation("act-c5", "op-cancel-owner")
+	assert json.loads(result)["state"] == "CANCELLED"
+
+
 def test_unknown_operation_lookups_return_empty_rather_than_reverting(guard):
 	assert guard.get_operation("nope") == ""
 	assert guard.get_operation_status("nope") == ""

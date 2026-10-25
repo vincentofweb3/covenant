@@ -259,6 +259,29 @@ def test_a_cancelled_payment_cannot_execute(sim, deployed):
 	assert _balance(sim, vault) == 1_000_000
 
 
+def test_only_the_proposer_or_vault_owner_can_cancel_a_payment(sim, deployed):
+	vault = deployed["vault"]
+	stranger = "0x" + "99" * 20
+
+	request(sim, vault, "op-cancel-auth", SMALL, "vendor retainer")
+	with pytest.raises(SimError):
+		sim.call(
+			vault,
+			"cancel_payment",
+			["cancel-stranger", "op-cancel-auth"],
+			sender=stranger,
+		)
+	assert sim.read(vault, "get_payment_status", ["op-cancel-auth"]) == "REQUESTED"
+
+	result = sim.call(
+		vault,
+		"cancel_payment",
+		["cancel-proposer", "op-cancel-auth"],
+		sender=PROPOSER,
+	)
+	assert json.loads(result)["state"] == "CANCELLED"
+
+
 def test_unknown_payment_lookups_are_empty_not_fatal(sim, deployed):
 	vault = deployed["vault"]
 	assert sim.read(vault, "get_payment", ["nope"]) == ""
@@ -285,8 +308,8 @@ def test_amending_the_covenant_changes_what_the_vault_allows(sim, deployed):
 
 	# 2. Owner proposes, two distinct approvers sign, timelock elapses.
 	sim.call(guard, "propose_amendment", ["am-1", "amend-1", COVENANT_V2])
-	sim.call(guard, "approve_amendment", ["ap-1", "amend-1"], sender="0x" + "aa" * 20)
-	sim.call(guard, "approve_amendment", ["ap-2", "amend-1"], sender="0x" + "bb" * 20)
+	sim.call(guard, "approve_amendment", ["ap-1", "amend-1"], sender=SIGNER_A)
+	sim.call(guard, "approve_amendment", ["ap-2", "amend-1"], sender=SIGNER_B)
 	sim.set_time("2026-01-02T00:00:00+00:00")
 	sim.call(guard, "activate_amendment", ["act-1", "amend-1"])
 	assert int(sim.read(guard, "get_covenant_version")) == 2
@@ -305,7 +328,7 @@ def test_a_single_approver_cannot_amend_the_covenant(sim, deployed):
 
 	before = sim.read(guard, "get_covenant_hash")
 	sim.call(guard, "propose_amendment", ["am-2", "amend-2", COVENANT_V2])
-	sim.call(guard, "approve_amendment", ["ap-3", "amend-2"], sender="0x" + "aa" * 20)
+	sim.call(guard, "approve_amendment", ["ap-3", "amend-2"], sender=SIGNER_A)
 
 	assert sim.read(guard, "get_amendment_status", ["amend-2"]) == "DRAFT"
 	with pytest.raises(SimError):

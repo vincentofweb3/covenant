@@ -181,11 +181,12 @@ def test_an_amendment_cannot_retroactively_validate_a_pending_operation(direct_v
 	guard.judge_operation("adv-21", "op-old")
 	old_digest = _ruling(guard, "op-old")["covenant_digest"]
 
-	from gltest.direct.loader import create_address
+	from genlayer.py.types import Address
 
 	guard.propose_amendment("adv-22", "am-adv", COVENANT_V2)
+	governance = json.loads(guard.get_governance())["governance"]
 	for index in (1, 2):
-		direct_vm.sender = create_address(f"approver-{index}")
+		direct_vm.sender = Address(governance[index])
 		guard.approve_amendment(f"adv-23-{index}", "am-adv")
 
 	from . import direct_support

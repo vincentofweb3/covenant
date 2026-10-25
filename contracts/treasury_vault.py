@@ -89,6 +89,10 @@ def _address_text(value) -> str:
 	return str(value).strip().lower()
 
 
+def _sender() -> str:
+	return _address_text(gl.message.sender_address)
+
+
 def _check_amount(value) -> int:
 	text = str(value).strip()
 	if text == "":
@@ -260,6 +264,7 @@ class TreasuryVault(gl.Contract):
 		record = {
 			"operation_id": op_id,
 			"state": PAY_REQUESTED,
+			"proposer": _sender(),
 			"recipient": to,
 			"amount": value,
 			"memo": note,
@@ -410,8 +415,13 @@ class TreasuryVault(gl.Contract):
 		if str(payment.get("state", "")) != PAY_REQUESTED:
 			_fail("only a requested payment can be cancelled")
 
+		if _sender() != str(payment.get("proposer", "")) and _sender() != _address_text(
+			self.owner
+		):
+			_fail("only the proposer or vault owner may cancel a payment")
+
 		payment["state"] = PAY_CANCELLED
-		encoded = _canonical(payment)
-		self.payments[op_id] = encoded
-		self._record_action(action_id, digest, encoded)
-		return encoded
+		cancelled = _canonical(payment)
+		self.payments[op_id] = cancelled
+		self._record_action(action_id, digest, cancelled)
+		return cancelled

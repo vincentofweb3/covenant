@@ -6,9 +6,10 @@ outcomes matched expectations exactly. This is the run to cite for the
 evidence-provenance claim and the cancellation-authority fix.
 
 Raw data: [`live-run.json`](live-run.json) — 42 transactions, 39 reads.
-Supplementary amendment-authority probe:
+Supplementary authority probes:
 [`amendment-authority-live.json`](amendment-authority-live.json) — 2 transactions,
-4 reads.
+4 reads; [`vault-cancellation-live.json`](vault-cancellation-live.json) — 3
+transactions, 3 reads.
 Historical pre-amendment run: [`studionet-2026-10-20.md`](studionet-2026-10-20.md)
 and [`live-run-2026-10-20.json`](live-run-2026-10-20.json).
 
@@ -95,6 +96,24 @@ back with
 `EXPECTED: only a configured governance approver may approve an amendment`;
 the amendment remained `DRAFT` with `approvers: []` before and after.
 
+## Vault cancellation authority
+
+The vault half of the cancellation fix was probed directly on the deployed vault.
+The owner requested a payment, the procurement attestor tried to cancel it, then
+the owner cancelled it:
+
+| Step | Sender | Transaction | Result | Payment status after |
+|---|---|---|---|---|
+| `request_payment` | owner | `0x04d30884…` | SUCCESS | `REQUESTED` |
+| outsider `cancel_payment` | procurement attestor | `0x9613e8ce…` | leader `ERROR` | `REQUESTED` |
+| owner `cancel_payment` | owner | `0xa0fc529a…` | SUCCESS | `CANCELLED` |
+
+The outsider call rolled back with
+`EXPECTED: only the proposer or vault owner may cancel a payment`. The owner's
+call returned the serialized payment record with `state: CANCELLED`, and
+`get_payment_status` read back `CANCELLED`. Full hashes are in
+`vault-cancellation-live.json`.
+
 ## Enforcement results
 
 | Step | Amount | Applicant-supplied facts | Verdict | Guard state | Vault status | Moved |
@@ -167,8 +186,8 @@ two. Three transactions have leader execution `ERROR` because the contract
 deliberately refused them: the outsider cancellation, `op-big` execution, and
 `op-prohibited` execution. The guard's four granular states are `FINALIZED`,
 `REJECTED`, `UNDETERMINED`, and `RULED`; no transaction here ended
-`UNDETERMINED`. The supplementary amendment probe added 2/2 transactions
-`FINALIZED` with `MAJORITY_AGREE` in one round.
+`UNDETERMINED`. The supplementary probes added 5/5 transactions `FINALIZED` with
+`MAJORITY_AGREE` in one round.
 
 ## A policy-wording finding, kept honestly
 

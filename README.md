@@ -160,15 +160,19 @@ instruction and subject.
 
 `op-signed` carries two distinct signer approvals bound to the exact operation.
 An outsider cancellation was refused (`PROPOSED` remained), while the owner's
-cancellation returned the serialized `CANCELLED` record; a separate live probe
-showed an outsider amendment approval rolled back and left `approvers: []`.
-`op-big` was refused under covenant v1; the covenant was then amended by quorum
-and timelock, and the same payment executed under v2. Balances reconcile exactly:
+cancellation returned the serialized `CANCELLED` record. Separate live probes
+showed an outsider amendment approval rolled back (`approvers: []`), and the
+deployed vault refused an outsider payment cancellation while the owner's
+returned `CANCELLED`. `op-big` was refused under covenant v1; the covenant was
+then amended by quorum and timelock, and the same payment executed under v2.
+Balances reconcile exactly:
 `1,000,000 − 900 − 900 − 120,000 = 878,200`.
 
 Evidence: [`evidence/studionet-2026-10-25.md`](evidence/studionet-2026-10-25.md),
-[`evidence/live-run.json`](evidence/live-run.json), and
-[`evidence/amendment-authority-live.json`](evidence/amendment-authority-live.json).
+[`evidence/live-run.json`](evidence/live-run.json),
+[`evidence/amendment-authority-live.json`](evidence/amendment-authority-live.json),
+and [`evidence/vault-cancellation-live.json`](evidence/vault-cancellation-live.json).
+and [`evidence/vault-cancellation-live.json`](evidence/vault-cancellation-live.json).
 Reproduce: `python3 scripts/live_demo.py`.
 
 ---

@@ -1,0 +1,16 @@
+{
+ "vault": "0xCf542C78302Dd3B39Cef0aE6C0B5e07FE790F536",
+ "request_tx": "0x04d30884747a8233e830e9db120f93ca42ae3dead1e4892e5873a6b76717d28a",
+ "outsider_tx": "0x9613e8ceb5066a154e05de7e486e7efe1ad693aeeb34ec2e1ccdd1c9133647c4",
+ "owner_tx": "0xa0fc529afd8a2a7642b49fdc8d0adc3baa0ea756b64cc77a6fa4524d27aaaeb5",
+ "outsider_sender": "0x9494488e0f29C3D705439EEA285530aaabf01e69",
+ "outsider_execution": "ERROR",
+ "outsider_payload": "EXPECTED: only the proposer or vault owner may cancel a payment",
+ "owner_execution": "SUCCESS",
+ "owner_payload": {
+  "readable": "\"{\\\"amount\\\":1,\\\"binding\\\":\\\"{\\\\\\\"amount\\\\\\\":1,\\\\\\\"memo\\\\\\\":\\\\\\\"vault cancellation authority probe\\\\\\\",\\\\\\\"recipient\\\\\\\":\\\\\\\"0x158e5ccaa39f7db714b35ae5fb6a5d925be219cd\\\\\\\"}\\\",\\\"binding_digest\\\":\\\"c433fee5184be9910f9094deb6f9fe03fb63c9c0fadc8f295918f7518210adf0\\\",\\\"executed_evidence_digest\\\":\\\"\\\",\\\"executed_ruling_digest\\\":\\\"\\\",\\\"memo\\\":\\\"vault cancellation authority probe\\\",\\\"operation_id\\\":\\\"vault-cancel-probe\\\",\\\"proposer\\\":\\\"0x158e5ccaa39f7db714b35ae5fb6a5d925be219cd\\\",\\\"recipient\\\":\\\"0x158e5ccaa39f7db714b35ae5fb6a5d925be219cd\\\",\\\"requested_at\\\":0,\\\"state\\\":\\\"CANCELLED\\\"}\""
+ },
+ "status_before": "REQUESTED",
+ "status_after_outsider": "REQUESTED",
+ "status_after_owner": "CANCELLED"
+}

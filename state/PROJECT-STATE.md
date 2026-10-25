@@ -50,7 +50,7 @@ signer approvals, evidence-bound rulings, and the v1 → v2 amendment.
 ```console
 $ python3 -m compileall -q contracts scripts tests
 $ python3 scripts/preflight.py
-✓ Preflight passed (337 checks, 59 files scanned)
+✓ Preflight passed (337 checks, 60 files scanned)
 
 $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/covenant_guard.py
 ✓ Validation passed
@@ -210,15 +210,17 @@ All five enforcement expectations held:
 `op-signed` has two distinct signer approvals bound to the operation; it is
 permitted independently because it is below the threshold. An outsider could not
 cancel a pending operation, while the owner could; `cancel_operation` returned
-the serialized `CANCELLED` record. A supplementary probe showed an outsider
-amendment approval rolled back and left `approvers: []`. `op-big` and
+the serialized `CANCELLED` record. Supplementary probes showed an outsider
+amendment approval rolled back (`approvers: []`) and the deployed vault refused
+an outsider payment cancellation. `op-big` and
 `op-after` are the same payment, split by the quorum + timelock amendment; it
 flipped from refused to executed. Balances reconcile exactly:
 `1,000,000 − 900 − 900 − 120,000 = 878,200` (`get_totals` returned the same
 values).
 
-Evidence: `evidence/studionet-2026-10-25.md`, `evidence/live-run.json`, and
-`evidence/amendment-authority-live.json`.
+Evidence: `evidence/studionet-2026-10-25.md`, `evidence/live-run.json`,
+`evidence/amendment-authority-live.json`, and
+`evidence/vault-cancellation-live.json`.
 Historical pre-amendment run: `evidence/studionet-2026-10-20.md` and
 `evidence/live-run-2026-10-20.json`.
 
